@@ -6,6 +6,7 @@ const entrypoint = readFileSync(
   resolve(process.cwd(), 'docker-entrypoint.sh'),
   'utf8',
 )
+const dockerfile = readFileSync(resolve(process.cwd(), 'Dockerfile'), 'utf8')
 
 describe('docker-entrypoint', () => {
   it('does not mutate Nitro public assets at container startup', () => {
@@ -26,5 +27,17 @@ describe('docker-entrypoint', () => {
     expect(entrypoint).toMatch(
       /NUXT_PUBLIC_DEFAULT_BACKEND_URL=.*DEFAULT_BACKEND_URL/,
     )
+  })
+})
+
+describe('Dockerfile NAS build hardening', () => {
+  it('copies pnpm packages instead of relying on overlayfs hardlinks', () => {
+    expect(dockerfile).toContain('--package-import-method=copy')
+    expect(dockerfile).toContain("dist/app/entry.js")
+  })
+
+  it('uses offline font resolution by default', () => {
+    expect(dockerfile).toContain('ARG MCXD_OFFLINE_FONTS=true')
+    expect(dockerfile).toContain('MCXD_OFFLINE_FONTS=${MCXD_OFFLINE_FONTS}')
   })
 })

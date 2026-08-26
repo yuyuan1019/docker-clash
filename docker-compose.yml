@@ -112,6 +112,8 @@ services:
       args:
         # 面板部署在 /xd/ 子路径下
         NUXT_APP_BASE_URL: "/xd/"
+        # NAS 构建默认禁用 Google Fonts 元数据请求，改用系统字体回退
+        MCXD_OFFLINE_FONTS: "true"
         # 国内构建可取消注释使用 npmmirror 源
         # NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
     container_name: metacubexd

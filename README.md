@@ -67,6 +67,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
   密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
 - 面板 Overview/侧边栏的「订阅转换」默认返回当前 `window.location.origin`，保留 7788 等非标准端口。
+- metacubexd 容器构建默认使用离线字体模式，不访问 Google Fonts；pnpm 使用实体复制安装，避免 Synology/BuildKit 丢失 Nuxt 硬链接入口。
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。

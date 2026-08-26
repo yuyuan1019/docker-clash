@@ -12,6 +12,10 @@ const isDev = process.env.NODE_ENV === 'development'
 // noise, so the whole PWA/SW layer is disabled for that target.
 const pwaDisabled = process.env.MCXD_DISABLE_PWA === 'true'
 
+// NAS/Docker 构建默认无法稳定访问 Google Fonts metadata。
+// 离线模式不解析/下载 Ubuntu，CSS 会自然使用已有的系统字体回退链。
+const offlineFonts = process.env.MCXD_OFFLINE_FONTS === 'true'
+
 export default defineNuxtConfig({
   // Workspace move: the Nuxt app is the package root. Pin srcDir explicitly
   // so the legacy root layout (top-level pages/, components/, no app/ dir)
@@ -149,7 +153,7 @@ export default defineNuxtConfig({
     families: [
       {
         name: 'Ubuntu',
-        provider: 'google',
+        provider: offlineFonts ? 'none' : 'google',
         weights: [300, 400, 500, 700],
         styles: ['normal', 'italic'],
       },
@@ -159,6 +163,12 @@ export default defineNuxtConfig({
       styles: ['normal'],
       subsets: ['latin', 'latin-ext', 'cyrillic', 'cyrillic-ext'],
     },
+    providers: offlineFonts
+      ? {
+          google: false,
+          googleicons: false,
+        }
+      : undefined,
   },
 
   // TypeScript configuration
