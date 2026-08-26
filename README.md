@@ -2,6 +2,51 @@
 
 将订阅转换、短链服务、mihomo 内核与面板整合为一个 docker-compose 项目。
 
+## 操作指南
+
+### 日常使用（生成订阅并启用）
+
+1. 浏览器打开 `http://服务器IP/`（订阅转换首页）
+2. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
+   多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
+3. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
+4. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
+5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名/s/xxxx`
+6. 点「启用 mihomo」→ 自动把转换结果写入本机 mihomo 并热重载（容器若已停止会自动拉起）
+7. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
+   - 后端地址填 `http://服务器IP/clash`，密钥为 `.env` 的 `MIHOMO_SECRET`（默认 `yuan`）
+8. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
+
+### 客户端使用
+
+- OpenClash / mihomo 系客户端：直接用生成的订阅链接或短链，配置由客户端自动更新
+- 本机 mihomo 作为局域网代理网关：取消 `docker-compose.yml` 里 mihomo 的 7890 端口注释后，
+  其他设备代理设置为 `服务器IP:7890`
+
+### 运维操作
+
+```bash
+docker compose up -d          # 启动/更新（配置变更后）
+docker compose stop           # 停止全部服务（数据保留在 ./data）
+docker compose start          # 恢复
+docker compose logs -f zurl   # 看某个服务日志（zurl/subconverter/mihomo/nginx...）
+docker compose pull && docker compose up -d   # 升级 subconverter/mihomo 官方镜像
+# 本地构建的三个前端/后端改了代码后：
+docker compose build sub-web zurl metacubexd && docker compose up -d
+```
+
+### 部署到其他机器
+
+```bash
+git clone https://github.com/yuyuan1019/docker-clash.git
+cd docker-clash
+cp .env.example .env
+cp config/mihomo/config.example.yaml config/mihomo/config.yaml
+vi .env        # 改 ZURL_SHORT_TOKEN（随机长字符串）和 MIHOMO_SECRET
+vi config/mihomo/config.yaml   # secret 与 MIHOMO_SECRET 保持一致
+docker compose up -d
+```
+
 ## 架构
 
 **对外只暴露一个端口**（默认 80，nginx 统一网关）：
