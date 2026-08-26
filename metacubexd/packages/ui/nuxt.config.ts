@@ -43,6 +43,8 @@ export default defineNuxtConfig({
       appVersion: pkg.version,
       mockMode: process.env.MOCK_MODE === 'true',
       defaultBackendURL: '',
+      // 连接表单默认密钥（docker-compose DEFAULT_BACKEND_SECRET 注入，通常与 mihomo secret 一致）
+      defaultBackendSecret: '',
       githubToken: '',
       // 订阅转换首页地址（docker-compose SUB_WEB_URL 注入；留空则按当前主机名+80 端口推导）
       subWebUrl: '',

@@ -14,7 +14,7 @@
 5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名/s/xxxx`
 6. 点「启用 mihomo」→ 自动把转换结果写入本机 mihomo 并热重载（容器若已停止会自动拉起）
 7. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
-   - 后端地址填 `http://服务器IP:7788/clash`，密钥为 `.env` 的 `MIHOMO_SECRET`（默认 `yuan`）
+   - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
 8. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
 
 ### 客户端使用
@@ -64,7 +64,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 订阅转换界面的「后端地址」「短链选择」**默认值根据当前访问域名动态生成**
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
 - 生成的短链同样是动态的 `当前域名/s/xxxx`（zurl 从反代请求头取 Host/Proto）。
-- 面板连接地址：`http://域名/clash`，密钥为 `config/mihomo/config.yaml` 里的 `secret`。
+- 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
+  密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「启用 mihomo」按钮：生成订阅链接后点击，后端会拉取转换结果、写入管理端口 9090 与密钥
@@ -93,7 +94,7 @@ docker compose up -d
 
 # 3. 访问（默认 Web 端口 7788）
 http://服务器IP:7788/       订阅转换
-http://服务器IP:7788/xd/    metacubexd 面板（后端地址填 http://服务器IP:7788/clash，secret 同上）
+http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动预填，直接点连接）
 ```
 
 国内构建加速：编辑 `docker-compose.yml`，取消各服务 `args` 里的

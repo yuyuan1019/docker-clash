@@ -116,8 +116,11 @@ services:
     container_name: metacubexd
     restart: unless-stopped
     environment:
-      # 预填面板的后端地址，例如 http://你的域名/clash （留空则手动填写）
+      # 预填面板的后端地址，例如 http://你的域名/clash
+      # 留空则按当前访问地址自动推导为 当前源 + /clash（自动跟随 Web 端口）
       DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
+      # 预填面板的连接密钥（默认与 mihomo secret 一致）
+      DEFAULT_BACKEND_SECRET: "${MIHOMO_SECRET:-yuan}"
       # 订阅转换首页地址（侧边栏快捷跳转）；留空默认同主机 80 端口
       SUB_WEB_URL: "${SUB_WEB_URL:-}"
     depends_on:

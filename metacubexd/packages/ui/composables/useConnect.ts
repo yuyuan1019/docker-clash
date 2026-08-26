@@ -19,7 +19,8 @@ export function useConnect() {
   const probeState = ref<'idle' | 'probing' | 'unreachable'>('idle')
   const probeTarget = ref('')
 
-  // Priority: runtime config (NUXT_PUBLIC_DEFAULT_BACKEND_URL) > config.js > fallback
+  // Priority: runtime config (NUXT_PUBLIC_DEFAULT_BACKEND_URL) > config.js >
+  // 当前访问源推导（面板经 nginx 同端口反代，/clash 即后端，自动跟随配置的 Web 端口）> fallback
   const defaultBackendURL = computed(() => {
     if (runtimeConfig.public.defaultBackendURL) {
       return runtimeConfig.public.defaultBackendURL as string
@@ -30,8 +31,16 @@ export function useConnect() {
     ) {
       return (window as any).__METACUBEXD_CONFIG__.defaultBackendURL as string
     }
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/clash`
+    }
     return FALLBACK_BACKEND_URL
   })
+
+  // 默认密钥：NUXT_PUBLIC_DEFAULT_BACKEND_SECRET（docker-compose DEFAULT_BACKEND_SECRET 注入）
+  const defaultBackendSecret = computed(
+    () => (runtimeConfig.public.defaultBackendSecret as string) || '',
+  )
 
   function onSuccess(id: string) {
     endpointStore.setSelectedEndpoint(id)
@@ -147,7 +156,7 @@ export function useConnect() {
 
     if (tryDefault && endpointStore.endpointList.length === 0) {
       formData.url = defaultBackendURL.value
-      formData.secret = ''
+      formData.secret = defaultBackendSecret.value
       probeTarget.value = transformEndpointURL(defaultBackendURL.value)
       probeState.value = 'probing'
       // Silent: the default backend is a guess, not the user's request, so a
@@ -170,6 +179,7 @@ export function useConnect() {
     probeState,
     probeTarget,
     defaultBackendURL,
+    defaultBackendSecret,
     connect,
     selectEndpoint,
     autoLogin,
