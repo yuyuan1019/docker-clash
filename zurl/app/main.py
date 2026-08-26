@@ -36,8 +36,11 @@ async def lifespan(app: FastAPI):
 # 创建 FastAPI 应用实例
 app = FastAPI(lifespan=lifespan)
 
-# 挂载静态文件目录
-app.mount("/dist", StaticFiles(directory="app/templates/dist"), name="static")
+# 挂载静态文件目录（管理后台前端为可选产物，dist 不存在时不挂载，避免启动崩溃；
+# 本项目 zurl 仅作 API 使用，后台前端不是必需的）
+import os
+if os.path.isdir("app/templates/dist"):
+    app.mount("/dist", StaticFiles(directory="app/templates/dist"), name="static")
 
 
 # 注册中间件
