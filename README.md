@@ -20,8 +20,8 @@
 ### 客户端使用
 
 - OpenClash / mihomo 系客户端：直接用生成的订阅链接或短链，配置由客户端自动更新
-- 本机 mihomo 作为局域网代理网关：取消 `docker-compose.yml` 里 mihomo 的 7890 端口注释后，
-  其他设备代理设置为 `服务器IP:7890`
+- 本机 mihomo 作为局域网代理网关：7890 端口默认已映射，
+  其他设备代理直接设置为 `服务器IP:7890`（不需要时到 `docker-compose.yml` 注释掉即可）
 
 ### 运维操作
 
@@ -49,7 +49,7 @@ docker compose up -d
 
 ## 架构
 
-**对外只暴露一个端口**（默认 80，nginx 统一网关）：
+**对外暴露两个端口**：7788（nginx 统一网关，可用 `.env` 的 `WEB_PORT` 修改）和 7890（mihomo 混合代理，局域网网关用）：
 
 ```
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
@@ -65,8 +65,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
 - 生成的短链同样是动态的 `当前域名/s/xxxx`（zurl 从反代请求头取 Host/Proto）。
 - 面板连接地址：`http://域名/clash`，密钥为 `config/mihomo/config.yaml` 里的 `secret`。
-- mihomo 的 7890 代理端口默认不对外；当局域网设备要把本机当代理网关时，
-  到 `docker-compose.yml` 取消 mihomo 的端口注释即可。
+- mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
+  不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「启用 mihomo」按钮：生成订阅链接后点击，后端会拉取转换结果、写入管理端口 9090 与密钥
   （默认 `yuan`，`.env` 的 `MIHOMO_SECRET` 可改）后原地重写 `config/mihomo/config.yaml`，
   并调用 mihomo `PATCH /configs?force=true` 热重载，面板 `/xd/` 即可看到新配置与节点；
@@ -138,7 +138,7 @@ http://服务器IP/xd/    metacubexd 面板（后端地址填 http://服务器IP
    经 nginx 的 `/short` 本身是公开的，与公共 sub-web 行为一致）。
 2. `config/mihomo/config.yaml` 的 `secret` 默认 `yuan`（与 `.env` 的 `MIHOMO_SECRET` 一致），
    公网部署务必同时修改这两处，`/clash` 即面板控制 API。
-3. 如需对外提供代理服务，再取消 mihomo 的 7890 端口映射，并注意来源限制。
+3. 7890 代理端口默认对局域网开放，请注意来源限制；不需要时注释掉端口映射。
 4. zurl 容器挂载了 `/var/run/docker.sock` 用于启停 mihomo，socket 权限等同宿主机 root，
    请勿把 zurl 的 3080 端口直接暴露到公网（默认不映射，仅经 nginx 受控路径访问）。
 5. 如需 HTTPS，把域名指到 nginx（:80），前端/短链会自动跟随 `https://`。
