@@ -63,10 +63,10 @@ services:
   zurl:
     build:
       context: ./zurl
-      # 国内构建加速：清华 pypi 源 + 中科大 alpine 源
-      args:
-        PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
-        APK_MIRROR: https://mirrors.ustc.edu.cn
+      # 国内构建可取消注释使用清华 pypi 源 + 中科大 alpine 源
+      # args:
+      #   PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+      #   APK_MIRROR: https://mirrors.ustc.edu.cn
     container_name: zurl
     restart: unless-stopped
     environment:
