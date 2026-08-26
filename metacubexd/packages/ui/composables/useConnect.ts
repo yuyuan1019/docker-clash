@@ -136,7 +136,15 @@ export function useConnect() {
     if (runtimeConfig.public.mockMode) return
 
     const { tryDefault = true, shouldNavigate } = options
+    const backend = query?.backend
     const hostname = query?.hostname
+
+    if (backend) {
+      formData.url = String(backend)
+      formData.secret = query.secret || ''
+      await connect(formData.url, formData.secret)
+      return
+    }
 
     if (hostname) {
       const protocol = query.http

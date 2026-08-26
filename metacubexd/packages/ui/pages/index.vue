@@ -21,8 +21,13 @@ const connectForm = ref<{
 const hasSavedEndpoints = computed(() => endpointStore.endpointList.length > 0)
 
 onMounted(async () => {
-  // Mock demos and already-connected users skip the entry entirely.
-  if (runtimeConfig.public.mockMode || endpointStore.currentEndpoint) {
+  // 显式面板深链接优先于本地保存的旧连接，便于首页传入当前环境密钥。
+  const hasDeepLink = Boolean(route.query.backend || route.query.hostname)
+  // Mock demos and already-connected users without a deep-link skip the entry.
+  if (
+    runtimeConfig.public.mockMode ||
+    (endpointStore.currentEndpoint && !hasDeepLink)
+  ) {
     router.replace(`/${configStore.defaultPage || 'overview'}`)
     return
   }

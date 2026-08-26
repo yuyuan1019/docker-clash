@@ -36,7 +36,7 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # ---- 一键启用到 mihomo（仅 POST，注入内部令牌，同 /short）----
+    # ---- 生成 mihomo 最新候选配置（仅 POST，不重启，同 /short）----
     location = /apply {
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080/apply;
@@ -64,7 +64,8 @@ server {
     location /mihomo/ {
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080;
-        proxy_set_header Host $host;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -77,7 +78,9 @@ server {
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080/short;
         # 注意：location 内一旦定义 proxy_set_header，server 级的同名指令不再继承，需全部重写
-        proxy_set_header Host $host;
+        # $host 会丢掉 7788 这类非标准端口；短链必须保留用户实际访问的 host:port
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

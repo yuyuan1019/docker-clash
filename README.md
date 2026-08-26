@@ -11,8 +11,8 @@
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
 3. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
 4. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
-5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名/s/xxxx`
-6. 点「启用 mihomo」→ 自动把转换结果写入本机 mihomo 并热重载（容器若已停止会自动拉起）
+5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
+6. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
 7. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
    - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
 8. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
@@ -55,7 +55,7 @@ docker compose up -d
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
 http://域名/subapi/  → SubConverter-Extended 订阅转换后端（官方镜像）
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
-http://域名/apply    → 一键启用：把本站 Clash 订阅链接应用为 mihomo 运行配置（POST，同上防护）
+http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
 http://域名/xd/      → metacubexd 面板（Nuxt baseURL=/xd/，本地构建）
 http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
@@ -63,17 +63,18 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 
 - 订阅转换界面的「后端地址」「短链选择」**默认值根据当前访问域名动态生成**
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
-- 生成的短链同样是动态的 `当前域名/s/xxxx`（zurl 从反代请求头取 Host/Proto）。
+- 生成的短链同样是动态的 `当前域名:端口/s/xxxx`（zurl 从反代请求头取 Host/Proto，包括非标准端口）。
 - 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
   密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
+- 面板 Overview/侧边栏的「订阅转换」默认返回当前 `window.location.origin`，保留 7788 等非标准端口。
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
-- 「启用 mihomo」按钮：生成订阅链接后点击，后端会拉取转换结果、写入管理端口 9090 与密钥
-  （默认 `yuan`，`.env` 的 `MIHOMO_SECRET` 可改）后原地重写 `config/mihomo/config.yaml`，
-  并调用 mihomo `PATCH /configs?force=true` 热重载，面板 `/xd/` 即可看到新配置与节点；
-  若 mihomo 容器处于停止状态会先自动启动。
+- 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
+- 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
+  容器已关闭时则启动，启动失败会回滚原配置。
+- 「打开面板」会生成带 `backend` 和环境 `MIHOMO_SECRET` 参数的短暂深链接，面板连接后会跳转到无密钥的 `/overview`。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
-  代理服务即停止；再用「启用 mihomo」可随时恢复。
+  代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
   （前端默认选中 jsdelivr 加速地址；后端 `default_external_config` 默认也是它）。
@@ -126,8 +127,7 @@ http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动�
 - **zurl**
   - 新增 `app/api/compat.py`：myurls 风格 `POST /short`（base64 longUrl + 可选 shortKey），
     返回 `{Code, Message, ShortUrl}`；ShortUrl 按请求头动态拼接 `/s/` 前缀
-  - 同文件新增 `POST /apply`：本站 Clash 订阅链接 → 内网拉取转换结果 → 保留核心项重写
-    mihomo 配置 → 热重载（`MIHOMO_API`/`MIHOMO_CONFIG_FILE`/`SUBCONVERTER_INTERNAL` 可配）
+  - `POST /apply` 只生成候选 `latest.yaml`；`POST /mihomo/latest-config` 才切换当前配置并重启 mihomo
   - `app/routers/routers.py` 注册 `/short`、`/apply` 路由；`DENY_SHORT_URLS` 增加 `short`、`s`、`apply`
   - `Dockerfile` 增加 `PIP_INDEX_URL` 构建参数；`requirements.txt` 增加 `pyyaml`；补充 `.dockerignore`
 - **metacubexd** `packages/ui/Dockerfile` 增加 `NUXT_APP_BASE_URL` 构建参数（子路径 /xd/ 部署）并禁用 PWA、增加 `NPM_CONFIG_REGISTRY` 构建参数；`nuxt.config.ts` 增加 `subWebUrl` 运行时配置；`components/Sidebar.vue` 侧边栏新增「订阅转换」快捷入口

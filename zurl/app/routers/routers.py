@@ -41,20 +41,31 @@ async def redirect_to_long_url(
 async def compat_short_create(request: Request, longUrl: str = Form(...), shortKey: str = Form("")):
     return await compatAPI.short_create(long_url_b64=longUrl, short_key=shortKey, request=request)
 
-# 一键启用：把本站生成的 Clash 订阅链接应用为 mihomo 运行配置（令牌由 nginx 注入）
+# 生成最新候选配置（不更新或重载 mihomo，令牌由 nginx 注入）
 @router.post("/apply")
 async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
     return await compatAPI.apply_to_mihomo(sub_url=subUrl, request=request)
-
-# 启动/关闭 mihomo 容器（经 Docker socket，令牌由 nginx 注入）
-@router.post("/mihomo/{action}")
-async def compat_control_mihomo(action: str, request: Request):
-    return await compatAPI.control_mihomo(action=action, request=request)
 
 # 查询 mihomo 容器运行状态（GET，令牌由 nginx 注入）
 @router.get("/mihomo/status")
 async def compat_mihomo_status(request: Request):
     return await compatAPI.mihomo_status(request=request)
+
+# 生成带环境密钥的 metacubexd 面板深链接
+@router.post("/mihomo/panel-url")
+async def compat_mihomo_panel_url(request: Request):
+    return await compatAPI.panel_url(request=request)
+
+# 把最新候选配置切换为当前配置，然后重启/启动 mihomo
+@router.post("/mihomo/latest-config")
+async def compat_activate_latest_mihomo_config(request: Request):
+    return await compatAPI.activate_latest_config(request=request)
+
+# 启动/关闭 mihomo 容器（经 Docker socket，令牌由 nginx 注入）
+# 通配 action 路由必须放在上述具体端点之后，避免拦截它们。
+@router.post("/mihomo/{action}")
+async def compat_control_mihomo(action: str, request: Request):
+    return await compatAPI.control_mihomo(action=action, request=request)
 
 # 登录接口
 @router.post("/api/login")

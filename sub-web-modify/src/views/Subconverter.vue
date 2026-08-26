@@ -7,7 +7,7 @@
             <el-tag size="small" :type="mihomoStatusTag.type" style="float:left;cursor:pointer" @click="getMihomoStatus">
               <i class="el-icon-cpu"></i> {{ mihomoStatusTag.text }}
             </el-tag>
-            <el-link type="primary" icon="el-icon-connection" style="float:right" :href="xdPanelUrl" target="_blank">打开面板</el-link>
+            <el-link type="primary" icon="el-icon-connection" style="float:right" href="#" @click.prevent="openXdPanel">打开面板</el-link>
             <div style="text-align:center;font-size:15px">订 阅 转 换</div>
           </div>
           <el-container>
@@ -239,10 +239,19 @@
                     type="warning"
                     class="action-btn"
                     icon="el-icon-cpu"
-                    @click="applyToMihomo"
+                    @click="generateLatestConfig"
                     :loading="applying"
                     :disabled="customSubUrl.length === 0"
-                >启用 mihomo
+                >生成最新配置
+                </el-button>
+                <el-button
+                    style="width: 150px"
+                    type="success"
+                    class="action-btn"
+                    icon="el-icon-refresh"
+                    @click="activateLatestConfig"
+                    :loading="switchingConfig"
+                >切换当前配置
                 </el-button>
                 <el-button
                     style="width: 140px"
@@ -630,8 +639,10 @@ export default {
         }
       },
       loading1: false,
-      // 启用 mihomo 按钮加载状态
+      // 生成最新候选配置按钮加载状态
       applying: false,
+      // 将最新候选配置切换为当前 config.yaml 的按钮状态
+      switchingConfig: false,
       // 关闭/启动 mihomo 按钮加载状态
       controlling: false,
       // mihomo 运行状态：true=运行中 false=已停止 null=未知
@@ -652,9 +663,7 @@ export default {
       myBot: tgBotLink,
       filterConfig: filterConfigSample,
       scriptConfig: scriptConfigSample,
-      sampleConfig: remoteConfigSample,
-      // metacubexd 面板与本站同域部署在 /xd/ 路径下（单端口模式）
-      xdPanelUrl: window.location.origin + "/xd/"
+      sampleConfig: remoteConfigSample
     };
   },
   computed: {
@@ -716,6 +725,25 @@ export default {
     } //监听系统主题，自动切换！
   },
   methods: {
+    openXdPanel() {
+      const panelWindow = window.open("about:blank", "_blank");
+      this.$axios
+          .post("/mihomo/panel-url")
+          .then(res => {
+            if (res.data.Code !== 1 || !res.data.PanelUrl) {
+              throw new Error(res.data.Message || "无法获取面板地址");
+            }
+            if (panelWindow) {
+              panelWindow.location.href = res.data.PanelUrl;
+            } else {
+              window.location.href = res.data.PanelUrl;
+            }
+          })
+          .catch(err => {
+            if (panelWindow) panelWindow.close();
+            this.$message.error("打开面板失败：" + (err.message || "未知错误"));
+          });
+    },
     selectChanged() {
       this.getBackendVersion();
     },
@@ -980,7 +1008,7 @@ export default {
             this.loading1 = false;
           });
     },
-    applyToMihomo() {
+    generateLatestConfig() {
       this.applying = true;
       let data = new FormData();
       data.append("subUrl", this.customSubUrl);
@@ -990,15 +1018,33 @@ export default {
             if (res.data.Code === 1) {
               this.$message.success(res.data.Message);
             } else {
-              this.$message.error("启用失败：" + res.data.Message);
+              this.$message.error("生成失败：" + res.data.Message);
+            }
+          })
+          .catch(() => {
+            this.$message.error("生成请求失败，请检查网络或稍后再试");
+          })
+          .finally(() => {
+            this.applying = false;
+          });
+    },
+    activateLatestConfig() {
+      this.switchingConfig = true;
+      this.$axios
+          .post("/mihomo/latest-config", null, { timeout: 60000 })
+          .then(res => {
+            if (res.data.Code === 1) {
+              this.$message.success(res.data.Message);
+            } else {
+              this.$message.error("切换失败：" + res.data.Message);
             }
             this.getMihomoStatus();
           })
           .catch(() => {
-            this.$message.error("启用请求失败，请检查网络或稍后再试");
+            this.$message.error("切换请求失败，请检查 mihomo 状态或稍后再试");
           })
           .finally(() => {
-            this.applying = false;
+            this.switchingConfig = false;
           });
     },
     getMihomoStatus() {

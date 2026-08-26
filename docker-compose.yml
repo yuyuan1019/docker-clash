@@ -77,7 +77,7 @@ services:
       WORKERS: "1"
     volumes:
       - ./data/zurl:/opt/zurl/app/data
-      # 与 mihomo 容器共享配置文件（/apply 一键启用时原地重写，保持 inode）
+      # /apply 只写 latest.yaml；用户点击切换后才原地重写 config.yaml
       - ./config/mihomo:/mihomo-config
       # Docker 控制接口（启停 mihomo 容器用）
       - /var/run/docker.sock:/var/run/docker.sock
@@ -122,7 +122,7 @@ services:
       DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
       # 预填面板的连接密钥（默认与 mihomo secret 一致）
       DEFAULT_BACKEND_SECRET: "${MIHOMO_SECRET:-yuan}"
-      # 订阅转换首页地址（侧边栏快捷跳转）；留空默认同主机 80 端口
+      # 订阅转换首页地址（侧边栏快捷跳转）；留空则跟随面板当前地址和端口
       SUB_WEB_URL: "${SUB_WEB_URL:-}"
     depends_on:
       - mihomo

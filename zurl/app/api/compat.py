@@ -9,8 +9,9 @@ import base64
 import json
 import os
 import re
+import tempfile
 import time
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, quote, urlparse
 
 import aiohttp
 import yaml
@@ -30,7 +31,7 @@ SHORT_PREFIX = os.environ.get("ZURL_SHORT_PREFIX", "/s/")
 # mihomo 控制 API（容器内网地址）与共享挂载的配置文件路径
 MIHOMO_API = os.environ.get("MIHOMO_API", "http://mihomo:9090")
 MIHOMO_CONFIG_FILE = os.environ.get("MIHOMO_CONFIG_FILE", "/mihomo-config/config.yaml")
-MIHOMO_CONFIG_PATH_IN_CONTAINER = "/root/.config/mihomo/config.yaml"
+MIHOMO_LATEST_CONFIG_FILE = os.environ.get("MIHOMO_LATEST_CONFIG_FILE", "/mihomo-config/latest.yaml")
 # SubConverter 容器内网地址（把 /subapi/ 公网地址映射成内网直连，避免域名回环）
 SUBCONVERTER_INTERNAL = os.environ.get("SUBCONVERTER_INTERNAL", "http://subconverter:25500")
 # Docker 控制接口（用于启停 mihomo 容器）
@@ -122,7 +123,7 @@ class CompatAPI:
             prefix += "/"
         return f"{proto}://{host}{prefix}{short_url}"
 
-    # 一键启用：把本站生成的 Clash 订阅链接应用为 mihomo 的运行配置
+    # 生成最新候选配置：只写 latest.yaml，不触碰当前运行的 config.yaml
     async def apply_to_mihomo(self, sub_url: str, request: Request):
         # 1. 内部令牌校验（nginx 注入 Header，浏览器拿不到）
         if SHORT_TOKEN:
@@ -137,7 +138,8 @@ class CompatAPI:
         parsed = urlparse(sub_url)
         if not parsed.path.startswith("/subapi/"):
             return _resp(0, "仅支持本站后端（/subapi）生成的订阅链接")
-        target = parse_qs(parsed.query).get("target", [""])[0]
+        query_args = parse_qs(parsed.query)
+        target = query_args.get("target", [""])[0]
         if target != "clash":
             return _resp(0, "仅支持生成类型为 Clash 的订阅链接")
         internal_url = SUBCONVERTER_INTERNAL + parsed.path[len("/subapi"):]
@@ -162,8 +164,7 @@ class CompatAPI:
         if not isinstance(new_cfg, dict):
             return _resp(0, "转换结果不是有效的 mihomo 配置")
 
-        # 4. 读取当前配置；当前密钥仅用于本次热重载鉴权，
-        #    写入的新配置统一使用固定管理端口与密钥（默认 9090 / yuan）
+        # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}
         if os.path.exists(MIHOMO_CONFIG_FILE):
             try:
@@ -171,48 +172,50 @@ class CompatAPI:
                     old_cfg = yaml.safe_load(f) or {}
             except Exception:
                 old_cfg = {}
-        secret = old_cfg.get("secret", "")
         new_cfg["external-controller"] = MIHOMO_EXTERNAL_CONTROLLER
         new_cfg["secret"] = MIHOMO_SECRET
         new_cfg["allow-lan"] = old_cfg.get("allow-lan", True)
         new_cfg["bind-address"] = old_cfg.get("bind-address", "*")
 
-        # 5. 原地写入（保持 inode 不变，mihomo 容器的文件 bind mount 才能读到新内容）
+        # proxy-provider 会由 mihomo 自己再次请求原订阅。若不把页面中的 diyua
+        # 写入 provider header，部分机场会把 mihomo 识别成旧客户端，只返回“客户端不支持”提示节点。
+        provider_user_agent = query_args.get("diyua", [""])[0].strip()
+        if len(provider_user_agent) > 256 or any(ch in provider_user_agent for ch in "\r\n\x00"):
+            return _resp(0, "自定义 User-Agent 不合法")
+        providers = new_cfg.get("proxy-providers")
+        if provider_user_agent and isinstance(providers, dict):
+            for provider in providers.values():
+                if not isinstance(provider, dict) or provider.get("type") != "http":
+                    continue
+                headers = provider.get("header")
+                if not isinstance(headers, dict):
+                    headers = {}
+                    provider["header"] = headers
+                headers["User-Agent"] = [provider_user_agent]
+
+        # 5. 只写入候选文件。只有用户点击“切换当前配置”才会改动 config.yaml。
+        candidate_path = ""
         try:
-            with open(MIHOMO_CONFIG_FILE, "w", encoding="utf-8") as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=os.path.dirname(MIHOMO_LATEST_CONFIG_FILE),
+                prefix=".latest-",
+                suffix=".yaml.tmp",
+                delete=False,
+            ) as f:
+                candidate_path = f.name
                 yaml.safe_dump(new_cfg, f, allow_unicode=True, sort_keys=False)
+            os.replace(candidate_path, MIHOMO_LATEST_CONFIG_FILE)
         except Exception as e:
-            return _resp(0, f"写入 mihomo 配置失败：{e}")
+            if candidate_path:
+                try:
+                    os.unlink(candidate_path)
+                except OSError:
+                    pass
+            return _resp(0, f"写入最新候选配置失败：{e}")
 
-        # 6. 确保 mihomo 容器处于运行状态（之前被关闭过则先启动）
-        running = await self._mihomo_running()
-        if running is None:
-            return _resp(0, "无法访问 Docker 控制接口（docker.sock）")
-        if not running:
-            status, body = await self._docker_request("POST", f"/containers/{MIHOMO_CONTAINER}/start")
-            if status not in (204, 304):
-                return _resp(0, f"启动 mihomo 容器失败：HTTP {status} {body[:200]}")
-            if not await self._wait_mihomo_api(secret):
-                return _resp(0, "mihomo 启动后控制接口未就绪，请稍后在面板查看")
-            # 刚启动时已自动读取新配置，无需再热重载
-        else:
-            # 运行中：通知 mihomo 热重载该配置文件
-            try:
-                timeout = aiohttp.ClientTimeout(total=30)
-                headers = {"Authorization": f"Bearer {secret}"} if secret else {}
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.patch(
-                        f"{MIHOMO_API}/configs?force=true",
-                        json={"path": MIHOMO_CONFIG_PATH_IN_CONTAINER},
-                        headers=headers,
-                    ) as resp:
-                        if resp.status not in (200, 204):
-                            body = await resp.text()
-                            return _resp(0, f"mihomo 重载配置失败：HTTP {resp.status} {body[:200]}")
-            except Exception as e:
-                return _resp(0, f"无法连接 mihomo 控制接口：{e}")
-
-        return _resp(1, "已启用到 mihomo 并重载成功，可打开面板查看节点")
+        return _resp(1, "最新配置已生成，当前 mihomo 配置未改动")
 
     # 查询 mihomo 容器运行状态（供首页展示，GET）
     async def mihomo_status(self, request: Request):
@@ -223,6 +226,93 @@ class CompatAPI:
         if running is None:
             return {"Code": 0, "Message": "无法访问 Docker 控制接口", "Running": None}
         return {"Code": 1, "Message": "ok", "Running": running}
+
+    # 返回带完整后端地址和环境密钥的面板深链接。
+    async def panel_url(self, request: Request):
+        if SHORT_TOKEN:
+            if request.headers.get("x-short-token", "") != SHORT_TOKEN:
+                return _resp(0, "unauthorized")
+        proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        origin = f"{proto}://{host}"
+        backend = f"{origin}/clash"
+        panel_url = f"{origin}/xd/?backend={quote(backend, safe='')}&secret={quote(MIHOMO_SECRET, safe='')}"
+        return {"Code": 1, "Message": "ok", "PanelUrl": panel_url}
+
+    # 把 latest.yaml 切换为当前 config.yaml，之后才重启/启动 mihomo
+    async def activate_latest_config(self, request: Request):
+        if SHORT_TOKEN:
+            if request.headers.get("x-short-token", "") != SHORT_TOKEN:
+                return _resp(0, "unauthorized")
+
+        if not os.path.isfile(MIHOMO_LATEST_CONFIG_FILE):
+            return _resp(0, "未找到最新候选配置，请先点击生成最新配置")
+
+        try:
+            with open(MIHOMO_LATEST_CONFIG_FILE, encoding="utf-8") as f:
+                latest_text = f.read()
+            config = yaml.safe_load(latest_text)
+        except Exception as e:
+            return _resp(0, f"读取最新配置失败：{e}")
+        if not isinstance(config, dict):
+            return _resp(0, "最新配置文件不是有效的 YAML 配置")
+
+        old_text = ""
+        if os.path.isfile(MIHOMO_CONFIG_FILE):
+            try:
+                with open(MIHOMO_CONFIG_FILE, encoding="utf-8") as f:
+                    old_text = f.read()
+                yaml.safe_load(old_text)
+            except Exception as e:
+                return _resp(0, f"读取当前配置失败：{e}")
+
+        running = await self._mihomo_running()
+        if running is None:
+            return _resp(0, "无法访问 Docker 控制接口（docker.sock）")
+
+        # 原地写入以保持 config.yaml 的 inode，确保 mihomo 的单文件 bind mount 可见。
+        try:
+            with open(MIHOMO_CONFIG_FILE, "w", encoding="utf-8") as f:
+                f.write(latest_text)
+        except Exception as e:
+            return _resp(0, f"切换当前配置文件失败：{e}")
+
+        action = "restart?t=10" if running else "start"
+        action_label = "重启" if running else "启动"
+        try:
+            status, body = await self._docker_request(
+                "POST", f"/containers/{MIHOMO_CONTAINER}/{action}"
+            )
+        except Exception as e:
+            self._restore_config(old_text)
+            return _resp(0, f"{action_label} mihomo 失败：{e}")
+        if status not in (204, 304):
+            self._restore_config(old_text)
+            return _resp(0, f"{action_label} mihomo 失败：HTTP {status} {body[:200]}")
+
+        if not await self._wait_mihomo_api(config.get("secret", "") or ""):
+            # 新配置无法正常启动时，恢复原文件并再重启一次回到旧配置。
+            self._restore_config(old_text)
+            if old_text:
+                try:
+                    await self._docker_request(
+                        "POST", f"/containers/{MIHOMO_CONTAINER}/restart?t=10"
+                    )
+                except Exception:
+                    pass
+            return _resp(0, f"mihomo {action_label}后控制接口未就绪，已回滚原配置")
+
+        return _resp(1, f"已切换当前配置并{action_label} mihomo")
+
+    @staticmethod
+    def _restore_config(old_text: str):
+        if old_text == "":
+            return
+        try:
+            with open(MIHOMO_CONFIG_FILE, "w", encoding="utf-8") as f:
+                f.write(old_text)
+        except Exception:
+            pass
 
     # 启动/关闭 mihomo 容器（经 Docker socket，不依赖 mihomo API，关闭后仍可再启动）
     async def control_mihomo(self, action: str, request: Request):

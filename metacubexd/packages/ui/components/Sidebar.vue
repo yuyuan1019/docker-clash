@@ -64,12 +64,12 @@ const navItems = computed(() => {
 const isActive = (href: string) => route.path === href
 
 // 订阅转换首页（sub-web）快捷入口：优先用 SUB_WEB_URL 环境变量，
-// 否则默认同主机名的 80 端口（docker-clash 的 nginx 入口）。
+// 否则完整跟随面板当前 origin（协议 + 主机 + 端口）。
 const subWebUrl = computed(() => {
   const custom = (runtimeConfig.public.subWebUrl as string) || ''
   if (custom) return custom
   if (!import.meta.client) return '/'
-  return `${window.location.protocol}//${window.location.hostname}/`
+  return `${window.location.origin}/`
 })
 
 // Running mode switcher (visible on all pages)
