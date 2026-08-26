@@ -6,7 +6,7 @@
 
 ### 日常使用（生成订阅并启用）
 
-1. 浏览器打开 `http://服务器IP/`（订阅转换首页）
+1. 浏览器打开 `http://服务器IP:7788/`（订阅转换首页，端口即 `.env` 的 `WEB_PORT`）
 2. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
 3. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
@@ -14,7 +14,7 @@
 5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名/s/xxxx`
 6. 点「启用 mihomo」→ 自动把转换结果写入本机 mihomo 并热重载（容器若已停止会自动拉起）
 7. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
-   - 后端地址填 `http://服务器IP/clash`，密钥为 `.env` 的 `MIHOMO_SECRET`（默认 `yuan`）
+   - 后端地址填 `http://服务器IP:7788/clash`，密钥为 `.env` 的 `MIHOMO_SECRET`（默认 `yuan`）
 8. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
 
 ### 客户端使用
@@ -91,9 +91,9 @@ vi config/mihomo/config.yaml   # secret 与 .env 的 MIHOMO_SECRET 保持一致
 # 2. 启动（首次会自动构建 sub-web / zurl / metacubexd）
 docker compose up -d
 
-# 3. 访问
-http://服务器IP/       订阅转换
-http://服务器IP/xd/    metacubexd 面板（后端地址填 http://服务器IP/clash，secret 同上）
+# 3. 访问（默认 Web 端口 7788）
+http://服务器IP:7788/       订阅转换
+http://服务器IP:7788/xd/    metacubexd 面板（后端地址填 http://服务器IP:7788/clash，secret 同上）
 ```
 
 国内构建加速：编辑 `docker-compose.yml`，取消各服务 `args` 里的
@@ -141,4 +141,4 @@ http://服务器IP/xd/    metacubexd 面板（后端地址填 http://服务器IP
 3. 7890 代理端口默认对局域网开放，请注意来源限制；不需要时注释掉端口映射。
 4. zurl 容器挂载了 `/var/run/docker.sock` 用于启停 mihomo，socket 权限等同宿主机 root，
    请勿把 zurl 的 3080 端口直接暴露到公网（默认不映射，仅经 nginx 受控路径访问）。
-5. 如需 HTTPS，把域名指到 nginx（:80），前端/短链会自动跟随 `https://`。
+5. 如需 HTTPS，把域名指到 nginx（默认 :7788，或改 `WEB_PORT` 为 80），前端/短链会自动跟随 `https://`。
