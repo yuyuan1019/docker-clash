@@ -3,6 +3,11 @@ FROM redis:7-alpine
 # 可选：指定 pip 镜像源（国内构建加速），默认官方源
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+# 可选：Alpine apk 镜像源（国内构建加速），如 https://mirrors.ustc.edu.cn
+ARG APK_MIRROR=
+RUN if [ -n "$APK_MIRROR" ]; then \
+      sed -i "s#https://dl-cdn.alpinelinux.org#${APK_MIRROR}#g" /etc/apk/repositories; \
+    fi
 # 工作目录
 WORKDIR /opt/zurl
 # 把当前目录下的所有文件拷贝到工作目录
