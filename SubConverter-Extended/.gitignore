@@ -1,0 +1,26 @@
+subconverter.exe
+.vscode
+cmake-build-debug
+.idea
+base/cache
+scripts/quickjspp
+scripts/yaml-cpp
+.DS_Store
+src/.DS_Store
+
+build
+bridge/libmihomo.a
+bridge/libmihomo.so
+bridge/libmihomo.dll
+bridge/libmihomo.dll.a
+
+__pycache__/
+*.pyc
+
+upstream-sync-*.json
+upstream-sync-*.md
+upstream-sync-decisions.raw
+
+# Local Markdown files under docs
+docs/*.md
+docs/**/*.md

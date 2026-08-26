@@ -1,0 +1,131 @@
+# docker-clash 统一入口
+# envsubst 只会替换环境中存在的变量（${ZURL_SHORT_TOKEN}），$host 等 nginx 变量不受影响
+server {
+    listen 80;
+    server_name _;
+
+    # 订阅链接可能很长
+    client_max_body_size 10m;
+
+    # ---- metacubexd 面板（Nuxt 服务自带 baseURL=/xd/，不要去前缀）----
+    location = /xd {
+        return 301 /xd/;
+    }
+    location /xd/ {
+        proxy_pass http://metacubexd:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # ---- mihomo Clash API（路径 /clash/，含 WebSocket 升级，面板连接用）----
+    # 面板后端地址填写：http(s)://当前域名/clash
+    location /clash/ {
+        proxy_pass http://mihomo:9090/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # WebSocket 长连接，不要超时断开
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ---- 一键启用到 mihomo（仅 POST，注入内部令牌，同 /short）----
+    location = /apply {
+        limit_except POST { deny all; }
+        proxy_pass http://zurl:3080/apply;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Short-Token "${ZURL_SHORT_TOKEN}";
+        # 转换拉取远程规则可能耗时较长
+        proxy_read_timeout 300s;
+    }
+
+    # ---- mihomo 状态查询（GET，供首页状态标签轮询）----
+    location = /mihomo/status {
+        proxy_pass http://zurl:3080/mihomo/status;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Short-Token "${ZURL_SHORT_TOKEN}";
+        proxy_read_timeout 30s;
+    }
+
+    # ---- 启停 mihomo（仅 POST，注入内部令牌，同 /short）----
+    location /mihomo/ {
+        limit_except POST { deny all; }
+        proxy_pass http://zurl:3080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Short-Token "${ZURL_SHORT_TOKEN}";
+        proxy_read_timeout 60s;
+    }
+
+    # ---- zurl 短链生成 API（仅 POST，注入内部令牌，浏览器不可见）----
+    location = /short {
+        limit_except POST { deny all; }
+        proxy_pass http://zurl:3080/short;
+        # 注意：location 内一旦定义 proxy_set_header，server 级的同名指令不再继承，需全部重写
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Short-Token "${ZURL_SHORT_TOKEN}";
+        proxy_read_timeout 30s;
+    }
+
+    # ---- zurl 短链解析跳转：/s/xxxx → zurl /xxxx（302）----
+    location /s/ {
+        proxy_pass http://zurl:3080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # ---- 版本探测：注入脚本探测头，使后端返回纯文本版本号而非 HTML 面板页 ----
+    location = /subapi/version {
+        proxy_pass http://subconverter:25500/version;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Sec-Fetch-Mode "cors";
+        proxy_set_header Sec-Fetch-Dest "empty";
+        proxy_read_timeout 30s;
+    }
+
+    # ---- SubConverter-Extended 后端：/subapi/xxx → :25500/xxx ----
+    location /subapi/ {
+        proxy_pass http://subconverter:25500/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # 拉取机场订阅可能很慢
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_connect_timeout 60s;
+    }
+
+    # ---- sub-web-modify 前端（订阅转换界面）----
+    location / {
+        proxy_pass http://sub-web:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

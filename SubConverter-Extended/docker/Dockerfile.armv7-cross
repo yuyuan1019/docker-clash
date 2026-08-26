@@ -1,0 +1,301 @@
+# ========== GO BUILD STAGE ==========
+ARG GO_IMAGE=mirror.gcr.io/library/golang:latest
+ARG DEBIAN_IMAGE=mirror.gcr.io/library/debian:latest
+ARG ALPINE_IMAGE=mirror.gcr.io/library/alpine:latest
+ARG DEBIAN_TRIXIE_IMAGE=mirror.gcr.io/library/debian:trixie
+ARG DEBIAN_TRIXIE_SLIM_IMAGE=mirror.gcr.io/library/debian:trixie-slim
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go-builder
+
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG MIHOMO_REF="Meta"
+ARG MIHOMO_CACHE_BUST=1
+ARG REFRESH_GO_DEPS=false
+
+WORKDIR /build/bridge
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git build-essential crossbuild-essential-armhf ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY bridge/go.mod bridge/go.sum ./
+COPY bridge/converter.go ./
+COPY bridge/age.go ./
+COPY bridge/parser.go ./
+COPY bridge/preprocess.go ./
+COPY bridge/mieru.go ./
+COPY bridge/cmd/portable-updater/ ./cmd/portable-updater/
+
+RUN set -xe && \
+    if [ "${REFRESH_GO_DEPS}" = "true" ]; then \
+      echo "MIHOMO_CACHE_BUST=$MIHOMO_CACHE_BUST" && \
+      go get github.com/metacubex/mihomo@${MIHOMO_REF} && \
+      go get -u all && \
+      go mod tidy; \
+    else \
+      go mod download; \
+    fi
+
+COPY scripts/ ../scripts/
+RUN go run ../scripts/generate_proxy_validation.go -o proxy_validation_generated.go -manifest mihomo_capabilities.json
+RUN go run ../scripts/generate_schemes.go -manifest mihomo_capabilities.json -o mihomo_schemes.h
+RUN go run ../scripts/generate_param_compat.go -manifest mihomo_capabilities.json -o param_compat.h
+
+RUN CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=arm \
+    GOARM=7 \
+    go build \
+      -trimpath \
+      -ldflags='-s -w' \
+      -o subconverter-update \
+      ./cmd/portable-updater
+
+RUN echo "==> Cross-compiling Go bridge for linux/arm/v7" && \
+    CGO_ENABLED=1 \
+    GOOS=linux \
+    GOARCH=arm \
+    GOARM=7 \
+    CC=arm-linux-gnueabihf-gcc \
+    go build \
+      -trimpath \
+      -buildmode=c-archive \
+      -o libmihomo.a \
+      .
+
+RUN ls -lh libmihomo.a libmihomo.h
+
+# ========== C++ CROSS BUILD STAGE ==========
+FROM --platform=$BUILDPLATFORM ${DEBIAN_TRIXIE_IMAGE} AS builder
+
+ARG THREADS="4"
+ARG SHA=""
+ARG VERSION="dev"
+ARG BUILD_DATE=""
+ARG REFRESH_HEADERS=false
+ARG SOURCE_DEPS_CACHE_BUST=stable
+ARG QUICKJSPP_REF
+ARG LIBCRON_REF
+ARG TOML11_REF
+ARG CPP_HTTPLIB_REF
+ARG NLOHMANN_JSON_REF
+ARG INJA_REF
+ARG JPCRE2_REF
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PKG_CONFIG_ALLOW_CROSS=1
+ENV PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig:/opt/armv7/lib/pkgconfig
+ENV PKG_CONFIG_PATH=/opt/armv7/lib/pkgconfig
+
+WORKDIR /
+
+RUN dpkg --add-architecture armhf && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git build-essential crossbuild-essential-armhf \
+      cmake ninja-build ccache pkg-config curl ca-certificates file \
+      tzdata \
+      libboost-dev \
+      libcurl4-openssl-dev:armhf \
+      libpcre2-dev:armhf \
+      libyaml-cpp-dev:armhf \
+      libatomic1:armhf \
+      rapidjson-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY cmake/linux-armv7hf.cmake /opt/armv7-toolchain.cmake
+
+RUN set -xe && \
+    echo "SOURCE_DEPS_CACHE_BUST=${SOURCE_DEPS_CACHE_BUST}" && \
+    git init quickjspp && \
+    git -C quickjspp remote add origin https://github.com/ftk/quickjspp.git && \
+    git -C quickjspp fetch --depth=1 origin "${QUICKJSPP_REF}" && \
+    git -C quickjspp checkout --detach FETCH_HEAD && \
+    git -C quickjspp submodule update --init --recursive --depth=1 && \
+    cd quickjspp && \
+    cmake -DCMAKE_TOOLCHAIN_FILE=/opt/armv7-toolchain.cmake -DCMAKE_BUILD_TYPE=Release . && \
+    make quickjs -j ${THREADS} && \
+    install -d /opt/armv7/lib/quickjs/ && \
+    install -m644 quickjs/libquickjs.a /opt/armv7/lib/quickjs/ && \
+    install -d /opt/armv7/include/quickjs/ && \
+    install -m644 quickjs/quickjs.h quickjs/quickjs-libc.h /opt/armv7/include/quickjs/ && \
+    install -m644 quickjspp.hpp /opt/armv7/include/
+
+RUN set -xe && \
+    echo "SOURCE_DEPS_CACHE_BUST=${SOURCE_DEPS_CACHE_BUST}" && \
+    git init libcron && \
+    git -C libcron remote add origin https://github.com/PerMalmberg/libcron.git && \
+    git -C libcron fetch --depth=1 origin "${LIBCRON_REF}" && \
+    git -C libcron checkout --detach FETCH_HEAD && \
+    git -C libcron submodule update --init --recursive --depth=1 && \
+    cd libcron && \
+    cmake -DCMAKE_TOOLCHAIN_FILE=/opt/armv7-toolchain.cmake -DCMAKE_BUILD_TYPE=Release . && \
+    make libcron -j ${THREADS} && \
+    install -d /opt/armv7/lib/ && \
+    install -m644 libcron/out/Release/liblibcron.a /opt/armv7/lib/ && \
+    install -d /opt/armv7/include/libcron/ && \
+    install -m644 libcron/include/libcron/* /opt/armv7/include/libcron/ && \
+    install -d /opt/armv7/include/date/ && \
+    install -m644 libcron/externals/date/include/date/* /opt/armv7/include/date/
+
+RUN set -xe && \
+    echo "SOURCE_DEPS_CACHE_BUST=${SOURCE_DEPS_CACHE_BUST}" && \
+    git init toml11 && \
+    git -C toml11 remote add origin https://github.com/ToruNiina/toml11.git && \
+    git -C toml11 fetch --depth=1 origin "${TOML11_REF}" && \
+    git -C toml11 checkout --detach FETCH_HEAD && \
+    cd toml11 && \
+    install -d /opt/armv7/include && \
+    cp -a include/. /opt/armv7/include/
+
+COPY --from=go-builder /build/bridge/libmihomo.a /usr/lib/
+COPY --from=go-builder /build/bridge/libmihomo.h /usr/include/
+
+WORKDIR /src
+COPY . /src
+COPY --from=go-builder /build/bridge/go.mod /src/bridge/go.mod
+COPY --from=go-builder /build/bridge/go.sum /src/bridge/go.sum
+COPY --from=go-builder /build/bridge/proxy_validation_generated.go /src/bridge/proxy_validation_generated.go
+COPY --from=go-builder /build/bridge/mihomo_schemes.h /src/src/parser/mihomo_schemes.h
+COPY --from=go-builder /build/bridge/param_compat.h /src/src/parser/param_compat.h
+
+RUN set -xe && \
+    if [ "${REFRESH_HEADERS}" = "true" ]; then \
+      echo "Downloading pinned cpp-httplib..." && \
+      curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL "https://raw.githubusercontent.com/yhirose/cpp-httplib/${CPP_HTTPLIB_REF}/httplib.h" -o include/httplib.h && \
+      echo "Downloading pinned nlohmann/json..." && \
+      curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL "https://raw.githubusercontent.com/nlohmann/json/${NLOHMANN_JSON_REF}/single_include/nlohmann/json.hpp" -o include/nlohmann/json.hpp && \
+      echo "Downloading pinned inja..." && \
+      curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL "https://raw.githubusercontent.com/pantor/inja/${INJA_REF}/single_include/inja/inja.hpp" -o include/inja.hpp && \
+      echo "Downloading pinned jpcre2..." && \
+      curl --retry 5 --retry-all-errors --retry-delay 5 -fsSL "https://raw.githubusercontent.com/jpcre2/jpcre2/${JPCRE2_REF}/src/jpcre2.hpp" -o include/jpcre2.hpp && \
+      echo "Copying pinned quickjspp from compiled source..." && \
+      cp /opt/armv7/include/quickjspp.hpp include/quickjspp.hpp && \
+      echo "Copying pinned libcron headers from compiled source..." && \
+      rm -rf include/libcron include/date && \
+      cp -a /libcron/libcron/include/libcron include/libcron && \
+      cp -a /libcron/libcron/externals/date/include/date include/date && \
+      echo "Copying pinned toml11 headers from compiled source..." && \
+      rm -rf include/toml11 && \
+      cp /toml11/include/toml.hpp include/toml.hpp && \
+      cp -a /toml11/include/toml11 include/toml11; \
+    else \
+      echo "Using committed header libraries"; \
+    fi
+
+RUN set -xe && \
+    BUILD_ID="$(printf '%.7s' "${SHA}")" && \
+    [ -n "${BUILD_ID}" ] && sed -i "s/#define BUILD_ID \"\"/#define BUILD_ID \"${BUILD_ID}\"/ " src/version.h || true && \
+    [ -n "${VERSION}" ] && sed -i "s/#define VERSION \"dev\"/#define VERSION \"${VERSION}\"/" src/version.h || true && \
+    [ -n "${BUILD_DATE}" ] && sed -i "s/#define BUILD_DATE \"\"/#define BUILD_DATE \"${BUILD_DATE}\"/" src/version.h || true && \
+    mkdir -p bridge && \
+    cp /usr/lib/libmihomo.a bridge/ && \
+    cp /usr/include/libmihomo.h bridge/ && \
+    export PATH="/usr/lib/ccache:$PATH" && \
+    export CCACHE_DIR=/tmp/ccache && \
+    export CCACHE_COMPILERCHECK=content && \
+    cmake -GNinja \
+      -DCMAKE_TOOLCHAIN_FILE=/opt/armv7-toolchain.cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_PREFIX_PATH=/opt/armv7 \
+      -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=OFF \
+      -DCURL_INCLUDE_DIR=/usr/include \
+      -DCURL_LIBRARY=/usr/lib/arm-linux-gnueabihf/libcurl.so \
+      -DPCRE2_INCLUDE_DIR=/usr/include \
+      -DPCRE2_LIBRARY=/usr/lib/arm-linux-gnueabihf/libpcre2-8.so \
+      -DQUICKJS_INCLUDE_DIRS=/opt/armv7/include \
+      -DQUICKJS_LIBRARY=/opt/armv7/lib/quickjs/libquickjs.a \
+      -DLIBCRON_INCLUDE_DIR=/opt/armv7/include \
+      -DDATE_INCLUDE_DIR=/opt/armv7/include \
+      -DLIBCRON_LIBRARY=/opt/armv7/lib/liblibcron.a \
+      -DRAPIDJSON_INCLUDEDIR=/usr/include \
+      . && \
+    ninja -j ${THREADS} && \
+    file /src/subconverter && \
+    arm-linux-gnueabihf-readelf -h /src/subconverter && \
+    arm-linux-gnueabihf-readelf -d /src/subconverter
+
+RUN set -xe && \
+    mkdir -p /runtime-root/etc/ssl/certs /runtime-root/etc /runtime-root/tmp /runtime-root/usr/lib/arm-linux-gnueabihf /runtime-root/usr/share/zoneinfo && \
+    cp -aL /etc/ssl/certs/ca-certificates.crt /runtime-root/etc/ssl/certs/ && \
+    cp -aL /usr/share/zoneinfo/. /runtime-root/usr/share/zoneinfo/ && \
+    ln -snf /usr/share/zoneinfo/Asia/Shanghai /runtime-root/etc/localtime && \
+    echo Asia/Shanghai > /runtime-root/etc/timezone && \
+    if [ -f /etc/nsswitch.conf ]; then cp -aL /etc/nsswitch.conf /runtime-root/etc/nsswitch.conf; fi && \
+    READELF=arm-linux-gnueabihf-readelf \
+    ELF_LIBRARY_PATH="/usr/lib/arm-linux-gnueabihf:/lib/arm-linux-gnueabihf:/usr/arm-linux-gnueabihf/lib:/usr/lib:/lib" \
+      bash /src/scripts/ci/copy-elf-runtime-deps.sh /runtime-root \
+        /src/subconverter \
+        libnss_dns.so.2 \
+        libnss_files.so.2 \
+        libnss_compat.so.2 \
+        libresolv.so.2 && \
+    if [ -d /runtime-root/lib ]; then \
+      install -d /runtime-root/usr/lib/arm-linux-gnueabihf; \
+      find /runtime-root/lib -maxdepth 1 -type f -name '*.so*' -exec mv -f -t /runtime-root/usr/lib/arm-linux-gnueabihf {} +; \
+      if [ -d /runtime-root/lib/arm-linux-gnueabihf ]; then \
+        cp -a /runtime-root/lib/arm-linux-gnueabihf/. /runtime-root/usr/lib/arm-linux-gnueabihf/; \
+        rm -rf /runtime-root/lib/arm-linux-gnueabihf; \
+      fi; \
+      rmdir /runtime-root/lib 2>/dev/null || true; \
+    fi
+
+# Small CI-only export image. It reuses the completed builder cache without
+# loading the full compiler toolchain into the runner's Docker daemon.
+FROM scratch AS ci-export
+COPY --from=builder /src/subconverter /src/subconverter
+COPY --from=go-builder /build/bridge/subconverter-update /src/subconverter-update
+COPY --from=builder /runtime-root /runtime-root
+COPY --from=builder /src/bridge /src/bridge
+COPY --from=builder /src/src/parser/mihomo_schemes.h /src/src/parser/mihomo_schemes.h
+COPY --from=builder /src/src/parser/param_compat.h /src/src/parser/param_compat.h
+COPY --from=builder /src/include /src/include
+CMD ["/src/subconverter"]
+
+# ========== FINAL STAGE ==========
+FROM --platform=$TARGETPLATFORM ${DEBIAN_TRIXIE_SLIM_IMAGE}
+
+ARG VERSION="dev"
+ARG SHA=""
+ARG BUILD_DATE=""
+ARG DEPENDENCY_SNAPSHOT_SHA=""
+LABEL \
+  org.opencontainers.image.title="SubConverter-Extended" \
+  org.opencontainers.image.description="A Modern Evolution of subconverter; an enhanced implementation aligned with Mihomo configuration" \
+  org.opencontainers.image.url="https://github.com/Aethersailor/SubConverter-Extended" \
+  org.opencontainers.image.source="https://github.com/Aethersailor/SubConverter-Extended" \
+  org.opencontainers.image.licenses="GPL-3.0" \
+  org.opencontainers.image.version="${VERSION}" \
+  org.opencontainers.image.revision="${SHA}" \
+  org.opencontainers.image.created="${BUILD_DATE}" \
+  com.aethersailor.dependency-snapshot.sha256="${DEPENDENCY_SNAPSHOT_SHA}" \
+  maintainer="Aethersailor"
+
+COPY --from=builder /runtime-root/ /
+COPY --from=builder --chmod=0755 /src/subconverter /usr/bin/subconverter
+COPY --from=builder /src/base /base/
+
+ENV TZ=Asia/Shanghai
+ENV LD_LIBRARY_PATH="/usr/lib/arm-linux-gnueabihf:/usr/lib"
+WORKDIR /base
+RUN set -e && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    printf '%s\n' \
+      '#!/bin/sh' \
+      'set -e' \
+      'export LD_LIBRARY_PATH="/usr/lib/arm-linux-gnueabihf:/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+      'CONF="${PREF_PATH:-/base/pref.toml}"' \
+      'CONF_DIR="$(dirname "$CONF")"' \
+      'mkdir -p "$CONF_DIR"' \
+      'if [ ! -f "$CONF" ] && [ -f /base/pref.example.toml ]; then' \
+      '  cp /base/pref.example.toml "$CONF"' \
+      'fi' \
+      'exec /usr/bin/subconverter -f "$CONF"' \
+      > /usr/local/bin/start-subconverter && \
+    chmod +x /usr/local/bin/start-subconverter
+CMD ["/usr/local/bin/start-subconverter"]
+EXPOSE 25500/tcp

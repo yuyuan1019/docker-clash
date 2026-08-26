@@ -1,0 +1,47 @@
+[
+  {
+    "sha": "ca209069bef6aa192ea4c6d63acc8fcc2125ad03",
+    "subject": "Update subparser.cpp",
+    "time": "2026-05-21T02:19:51+00:00",
+    "paths": [
+      "src/parser/subparser.cpp"
+    ],
+    "copilot_reason": "Single-line parser tweak (case-insensitive regex for wssettings). No generator or bridge changes."
+  },
+  {
+    "sha": "79369b0e7617e24366b57cbfb0402e6293d04fb4",
+    "subject": "Update subparser.cpp",
+    "time": "2026-05-21T02:19:51+00:00",
+    "paths": [
+      "src/parser/subparser.cpp"
+    ],
+    "copilot_reason": "Small parser-only adjustments to plugin option handling; backward-compatible parsing changes."
+  },
+  {
+    "sha": "3c640b1976eb48babf49f7e01e0a57d3311bd9e8",
+    "subject": "feat: add shadow-tls filtering and AnyTLS Surge INI import",
+    "time": "2026-06-08T21:45:14+00:00",
+    "paths": [
+      "src/parser/subparser.cpp"
+    ],
+    "copilot_reason": "Only modifies src/parser/subparser.cpp (whitelisted). Adds shadow-tls filtering via port=0 skip and AnyTLS Surge INI parsing. No output adapter or schema changes required."
+  },
+  {
+    "sha": "adfc7b4445fac65326fb77337af3921032ad802b",
+    "subject": "fix(subparser): prevent  remark fragments from leaking into query params",
+    "time": "2026-06-08T21:45:14+00:00",
+    "paths": [
+      "src/parser/subparser.cpp"
+    ],
+    "copilot_reason": "Only modifies src/parser/subparser.cpp (whitelisted). Refactors remark fragment extraction into extractRemark() helper. Pure internal refactoring with no schema or output changes."
+  },
+  {
+    "sha": "74c5ec00c732a61edc94f2b62886c8ba61243844",
+    "subject": "fix(subparser): Decode the serviceName value of gRPC from the URL",
+    "time": "2026-07-09T21:36:07+00:00",
+    "paths": [
+      "src/parser/subparser.cpp"
+    ],
+    "copilot_reason": "Removes redundant urlEncode call in gRPC service name handling within whitelisted subparser.cpp. Change normalizes gRPC path parsing to decode only. Parser-only, no output schema impact."
+  }
+]

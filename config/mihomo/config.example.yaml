@@ -1,0 +1,39 @@
+# mihomo 内核配置模板
+# 部署时复制为 config.yaml：cp config/mihomo/config.example.yaml config/mihomo/config.yaml
+# 面板连接地址：http://<服务器IP或域名>/clash，secret 见下方
+# 「启用 mihomo」功能会把 secret 自动重写为 .env 中 MIHOMO_SECRET 的值
+
+mixed-port: 7890
+allow-lan: true
+bind-address: "*"
+mode: rule
+log-level: info
+ipv6: false
+
+# Clash API（metacubexd 面板连接用，经 nginx /clash/ 访问）
+external-controller: 0.0.0.0:9090
+secret: "change-me"
+
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - 8.8.8.8
+    - 1.1.1.1
+
+# 通过 metacubexd 面板即可在线管理订阅/配置（支持粘贴订阅转换链接）
+proxies: []
+
+proxy-groups:
+  - name: "PROXY"
+    type: select
+    proxies:
+      - DIRECT
+
+rules:
+  - MATCH,PROXY

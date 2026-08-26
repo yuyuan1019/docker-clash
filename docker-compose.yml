@@ -1,0 +1,130 @@
+name: docker-clash
+
+# 一体化订阅转换 + 短链 + mihomo 面板
+# 入口：http://域名或IP/        → sub-web-modify（订阅转换界面）
+#       http://域名或IP/subapi/ → SubConverter-Extended 后端
+#       http://域名或IP/short   → zurl 短链生成 API（POST，内部令牌校验）
+#       http://域名或IP/s/xxxx  → zurl 短链 302 解析跳转
+#       http://域名或IP:8080/   → metacubexd 面板
+#       http://域名或IP:9090/   → mihomo Clash API（面板连接用）
+#       7890 端口               → mihomo 混合代理端口
+
+services:
+  # ---------- 统一入口网关 ----------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: clash-nginx
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    environment:
+      # 供 default.conf.template envsubst 注入 /short 的内部令牌
+      ZURL_SHORT_TOKEN: "${ZURL_SHORT_TOKEN:-}"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+    depends_on:
+      - sub-web
+      - subconverter
+      - zurl
+    networks:
+      - clash-net
+
+  # ---------- 前端 1：订阅转换界面 ----------
+  sub-web:
+    build:
+      context: ./sub-web-modify
+      # 国内构建可取消注释使用 npmmirror 源
+      # args:
+      #   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+    container_name: sub-web
+    restart: unless-stopped
+    networks:
+      - clash-net
+
+  # ---------- 订阅转换后端 ----------
+  subconverter:
+    # 默认使用官方预构建镜像（本地源码全量构建需要 Go+C++ 工具链，耗时很长）。
+    # 如需从 ./SubConverter-Extended 源码构建，注释 image、取消下面 build 注释：
+    # build:
+    #   context: ./SubConverter-Extended
+    image: aethersailor/subconverter-extended:latest
+    container_name: subconverter
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      # 公网部署时建议改为 public 或 strict
+      # SUBCONVERTER_SECURITY_PROFILE: public
+    volumes:
+      - ./SubConverter-Extended/base/pref.toml:/base/pref.toml:ro
+    networks:
+      - clash-net
+
+  # ---------- 短链 API（zurl，仅作 API 使用）----------
+  zurl:
+    build:
+      context: ./zurl
+      # 国内构建可取消注释使用清华 pypi 源
+      # args:
+      #   PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+    container_name: zurl
+    restart: unless-stopped
+    environment:
+      ZURL_SHORT_TOKEN: "${ZURL_SHORT_TOKEN:-}"
+      ZURL_SHORT_PREFIX: "/s/"
+      # 转换应用后自动写入 mihomo 的管理密钥（需与 config/mihomo/config.yaml 一致）
+      MIHOMO_SECRET: "${MIHOMO_SECRET:-yuan}"
+      WORKERS: "1"
+    volumes:
+      - ./data/zurl:/opt/zurl/app/data
+      # 与 mihomo 容器共享配置文件（/apply 一键启用时原地重写，保持 inode）
+      - ./config/mihomo:/mihomo-config
+      # Docker 控制接口（启停 mihomo 容器用）
+      - /var/run/docker.sock:/var/run/docker.sock
+    # 如需访问 zurl 自带管理后台（非必需），取消注释：
+    # ports:
+    #   - "3080:3080"
+    networks:
+      - clash-net
+
+  # ---------- mihomo 内核 ----------
+  # 注意：本地 mihomo/ 目录是星穹铁道 Python 库（KT-Yeh/mihomo），并非代理内核，
+  # 这里使用官方内核镜像 metacubex/mihomo。
+  # 单端口模式：9090 经 nginx /clash/ 路径反代，不直接暴露；
+  # 如局域网其他设备要把本机当代理网关，再取消 7890 的端口注释。
+  mihomo:
+    image: metacubex/mihomo:latest
+    container_name: mihomo
+    restart: unless-stopped
+    # ports:
+    #   - "${MIXED_PORT:-7890}:7890"     # 混合代理端口（仅在需要对外提供代理时开启）
+    volumes:
+      - ./config/mihomo/config.yaml:/root/.config/mihomo/config.yaml:ro
+      - ./data/mihomo:/root/.config/mihomo
+    networks:
+      - clash-net
+
+  # ---------- 前端 2：metacubexd 面板（经 nginx /xd/ 路径访问）----------
+  metacubexd:
+    build:
+      context: ./metacubexd
+      dockerfile: packages/ui/Dockerfile
+      args:
+        # 面板部署在 /xd/ 子路径下
+        NUXT_APP_BASE_URL: "/xd/"
+        # 国内构建可取消注释使用 npmmirror 源
+        # NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+    container_name: metacubexd
+    restart: unless-stopped
+    environment:
+      # 预填面板的后端地址，例如 http://你的域名/clash （留空则手动填写）
+      DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
+      # 订阅转换首页地址（侧边栏快捷跳转）；留空默认同主机 80 端口
+      SUB_WEB_URL: "${SUB_WEB_URL:-}"
+    depends_on:
+      - mihomo
+    networks:
+      - clash-net
+
+networks:
+  clash-net:
+    driver: bridge

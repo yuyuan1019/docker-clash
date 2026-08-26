@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览器不支持</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+        
+        .icon::after {
+            content: '⚠';
+            font-size: 40px;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        
+        .message {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            position: relative;
+        }
+        
+        .message::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #667eea, #764ba2);
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .message p {
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .url-display {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 30px 0;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            position: relative;
+        }
+        
+        .url-display::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #28a745, #20c997);
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .url-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .url-text {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 40px 12px 15px;
+            font-family: 'Courier New', Monaco, monospace;
+            font-size: 14px;
+            color: #495057;
+            word-break: break-all;
+            border: 1px solid #dee2e6;
+            position: relative;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .copy-btn.copied {
+            background: #28a745;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .subtitle {
+                font-size: 15px;
+            }
+            
+            .icon {
+                width: 70px;
+                height: 70px;
+                margin-bottom: 25px;
+            }
+            
+            .icon::after {
+                font-size: 35px;
+            }
+            
+            .url-text {
+                font-size: 12px;
+                padding: 10px 35px 10px 12px;
+            }
+            
+            .copy-btn {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon pulse"></div>
+        <h1>浏览器不支持</h1>
+        <p class="subtitle">当前浏览器无法正常访问此服务</p>
+        
+        <!-- <div class="message">
+            <p><strong>检测到您正在使用不支持的浏览器</strong></p>
+            <p>为了您的安全和更好的使用体验，请将地址复制到其它浏览器打开！</p>
+        </div> -->
+        
+        <div class="url-display">
+            <div class="url-label">当前网址：</div>
+            <div class="url-text" id="currentUrl">
+                <button class="copy-btn" onclick="copyUrl()" id="copyBtn">复制</button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>请复制上方网址，在支持的浏览器中重新打开</p>
+        </div>
+    </div>
+    
+    <script>
+        // 获取并显示当前页面地址
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUrl = window.location.href;
+            const urlElement = document.getElementById('currentUrl');
+            
+            // 创建包含网址和复制按钮的结构
+            urlElement.innerHTML = `
+                ${currentUrl}
+                <button class="copy-btn" onclick="copyUrl()" id="copyBtn">复制</button>
+            `;
+        });
+        
+        // 复制网址功能
+        function copyUrl() {
+            const url = window.location.href;
+            const copyBtn = document.getElementById('copyBtn');
+            
+            // 使用现代剪贴板API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(function() {
+                    showCopySuccess(copyBtn);
+                }).catch(function(err) {
+                    fallbackCopyTextToClipboard(url, copyBtn);
+                });
+            } else {
+                // 降级方案
+                fallbackCopyTextToClipboard(url, copyBtn);
+            }
+        }
+        
+        // 降级复制方案
+        function fallbackCopyTextToClipboard(text, btn) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopySuccess(btn);
+                }
+            } catch (err) {
+                console.error('复制失败:', err);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+        
+        // 显示复制成功状态
+        function showCopySuccess(btn) {
+            btn.textContent = '已复制';
+            btn.classList.add('copied');
+            
+            setTimeout(function() {
+                btn.textContent = '复制';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
