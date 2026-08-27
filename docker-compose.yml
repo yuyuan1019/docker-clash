@@ -92,8 +92,7 @@ services:
       - clash-net
 
   # ---------- mihomo 内核 ----------
-  # 注意：本地 mihomo/ 目录是星穹铁道 Python 库（KT-Yeh/mihomo），并非代理内核，
-  # 这里使用官方内核镜像 metacubex/mihomo。
+  # 使用官方 metacubex/mihomo 代理内核镜像。
   # 9090 经 nginx /clash/ 路径反代，不直接暴露；
   # 7890 混合代理端口默认开启，局域网设备可把本机当代理网关（不需要时注释掉即可）。
   mihomo:

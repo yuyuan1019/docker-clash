@@ -159,7 +159,6 @@ http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动�
 | `SubConverter-Extended/` | 转换后端源码（默认用官方镜像；`base/pref.toml` 已挂载，可自行定制） |
 | `zurl/` | 短链服务（新增 `app/api/compat.py` 兼容层：`POST /short`） |
 | `metacubexd/` | 面板（使用 `packages/ui/Dockerfile` 构建纯 UI） |
-| `mihomo/` | ⚠️ 此目录是星穹铁道 Python 库（KT-Yeh/mihomo），**不是代理内核**，未使用；内核用官方镜像 |
 | `nginx/templates/` | 网关配置（envsubst 模板） |
 | `config/mihomo/config.yaml` | mihomo 内核配置 |
 | `data/` | 运行数据（zurl sqlite/redis、mihomo 缓存） |
