@@ -14,9 +14,10 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/ packages/
 COPY apps/ apps/
 # Synology/BuildKit 的 overlayfs 可能无法在镜像层之间稳定保留 pnpm 的
-# clone/hardlink，表现为安装成功但 Nuxt dist/app/entry.js 在下一层缺失。
-# 容器构建改用实体复制，并在进入构建前验证 Nuxt 入口。
+# clone/hardlink 和隔离软链接，表现为安装成功但 Nuxt dist/app/entry.js
+# 在下一层构建时无法解析。使用实体复制 + hoisted 布局，避免跨层软链接失效。
 RUN pnpm install --frozen-lockfile --package-import-method=copy \
+    --node-linker=hoisted \
     && pnpm --filter @metacubexd/ui exec node -e \
       "const fs=require('fs');const path=require('path');const root=path.dirname(require.resolve('nuxt/package.json'));if(!fs.existsSync(path.join(root,'dist/app/entry.js')))process.exit(1)"
 # 子路径部署支持：构建期注入 Nuxt baseURL（如 /xd/，经 nginx 反代）；
