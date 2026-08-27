@@ -1,7 +1,9 @@
 import hashlib
 import hmac
 import html
+import json
 import os
+import tempfile
 import time
 from collections import defaultdict, deque
 from urllib.parse import quote
@@ -19,6 +21,10 @@ COOKIE_NAME = "docker_clash_session"
 MAX_ATTEMPTS = 5
 ATTEMPT_WINDOW = 300
 _failed_attempts = defaultdict(deque)
+FORM_CONFIG_FILE = os.environ.get(
+    "WEB_FORM_CONFIG_FILE", "app/data/web-form-config.json"
+)
+MAX_FORM_CONFIG_BYTES = 256 * 1024
 
 
 def _safe_next(value: str) -> str:
@@ -172,3 +178,59 @@ async def logout(request: Request) -> RedirectResponse:
     response.delete_cookie(COOKIE_NAME, path="/", secure=_is_https(request), samesite="lax")
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+async def get_form_config(request: Request):
+    if WEB_AUTH_ENABLED and not _valid_session(request.cookies.get(COOKIE_NAME, "")):
+        return Response(status_code=401, headers={"Cache-Control": "no-store"})
+    if not os.path.isfile(FORM_CONFIG_FILE):
+        return {"Code": 1, "Message": "ok", "FormConfig": None}
+    try:
+        with open(FORM_CONFIG_FILE, encoding="utf-8") as file:
+            config = json.load(file)
+        if not isinstance(config, dict) or config.get("version") != 1:
+            raise ValueError("unsupported form config")
+        return {"Code": 1, "Message": "ok", "FormConfig": config}
+    except Exception:
+        return {"Code": 0, "Message": "读取已保存配置失败", "FormConfig": None}
+
+
+async def save_form_config(request: Request):
+    if WEB_AUTH_ENABLED and not _valid_session(request.cookies.get(COOKIE_NAME, "")):
+        return Response(status_code=401, headers={"Cache-Control": "no-store"})
+    try:
+        config = await request.json()
+    except Exception:
+        return {"Code": 0, "Message": "配置不是有效的 JSON"}
+    if not isinstance(config, dict) or config.get("version") != 1:
+        return {"Code": 0, "Message": "配置版本不受支持"}
+    if not isinstance(config.get("form"), dict):
+        return {"Code": 0, "Message": "页面配置格式不正确"}
+
+    content = json.dumps(config, ensure_ascii=False, separators=(",", ":"))
+    if len(content.encode("utf-8")) > MAX_FORM_CONFIG_BYTES:
+        return {"Code": 0, "Message": "页面配置超过 256KB 限制"}
+
+    target_dir = os.path.dirname(FORM_CONFIG_FILE) or "."
+    temp_path = ""
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=target_dir,
+            prefix=".web-form-config-",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = file.name
+            file.write(content)
+        os.replace(temp_path, FORM_CONFIG_FILE)
+        return {"Code": 1, "Message": "ok"}
+    except Exception:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+        return {"Code": 0, "Message": "保存页面配置失败"}

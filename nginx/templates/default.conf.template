@@ -44,6 +44,16 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
     }
+    location = /gateway/form-config {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
+        limit_except GET POST { deny all; }
+        proxy_pass http://zurl:3080/gateway/form-config;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 30s;
+    }
     location @gateway_login_redirect {
         return 302 /login;
     }

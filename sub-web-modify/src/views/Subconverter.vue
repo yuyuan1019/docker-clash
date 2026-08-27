@@ -612,6 +612,8 @@ export default {
       statusTimer: null,
       // 订阅命名是否自动管理（用户手动修改后关闭，清空后恢复自动）
       filenameAuto: true,
+      formPersistenceReady: false,
+      formSaveTimer: null,
       loading2: false,
       loading3: false,
       customSubUrl: "",
@@ -657,6 +659,12 @@ export default {
     }
   },
   watch: {
+    form: {
+      deep: true,
+      handler() {
+        this.queueServerFormSave();
+      }
+    },
     // 订阅链接行变化时自动推导订阅命名：单订阅=提供商名，两条及以上=合集
     "form.subLinks": {
       deep: true,
@@ -674,10 +682,17 @@ export default {
       clearInterval(this.statusTimer);
       this.statusTimer = null;
     }
+    if (this.formSaveTimer) {
+      clearTimeout(this.formSaveTimer);
+      this.formSaveTimer = null;
+    }
   },
   mounted() {
     this.form.clientType = "clash";
-    this.getBackendVersion();
+    this.loadServerForm().finally(() => {
+      this.formPersistenceReady = true;
+      this.getBackendVersion();
+    });
     this.getMihomoStatus();
     this.statusTimer = setInterval(this.getMihomoStatus, 30000);
     this.anhei();
@@ -694,6 +709,73 @@ export default {
     } //监听系统主题，自动切换！
   },
   methods: {
+    applySavedForm(saved) {
+      if (!saved || saved.version !== 1 || !saved.form || typeof saved.form !== "object") return;
+      Object.keys(this.form).forEach(key => {
+        if (key === "subLinks") {
+          if (!Array.isArray(saved.form.subLinks)) return;
+          const rows = saved.form.subLinks
+              .slice(0, 50)
+              .filter(row => row && typeof row === "object")
+              .map(row => ({
+                name: typeof row.name === "string" ? row.name : "",
+                url: typeof row.url === "string" ? row.url : ""
+              }));
+          this.form.subLinks = rows.length ? rows : [{ name: "", url: "" }];
+          return;
+        }
+        if (key === "tpl") {
+          if (!saved.form.tpl || typeof saved.form.tpl !== "object") return;
+          Object.keys(this.form.tpl).forEach(section => {
+            const savedSection = saved.form.tpl[section];
+            if (!savedSection || typeof savedSection !== "object") return;
+            Object.keys(this.form.tpl[section]).forEach(option => {
+              if (typeof savedSection[option] === typeof this.form.tpl[section][option]) {
+                this.form.tpl[section][option] = savedSection[option];
+              }
+            });
+          });
+          return;
+        }
+        if (typeof saved.form[key] === typeof this.form[key]) {
+          this.form[key] = saved.form[key];
+        }
+      });
+      if (typeof saved.filenameAuto === "boolean") {
+        this.filenameAuto = saved.filenameAuto;
+      }
+    },
+    loadServerForm() {
+      return this.$axios
+          .get("/gateway/form-config", { timeout: 10000 })
+          .then(res => {
+            if (res.data.Code === 1 && res.data.FormConfig) {
+              this.applySavedForm(res.data.FormConfig);
+            }
+          })
+          .catch(() => {
+            // 读取失败时继续使用页面默认值，不影响订阅转换。
+          });
+    },
+    queueServerFormSave() {
+      if (!this.formPersistenceReady) return;
+      if (this.formSaveTimer) clearTimeout(this.formSaveTimer);
+      this.formSaveTimer = setTimeout(() => {
+        this.formSaveTimer = null;
+        this.saveFormToServer();
+      }, 500);
+    },
+    saveFormToServer() {
+      return this.$axios
+          .post("/gateway/form-config", {
+          version: 1,
+          form: this.form,
+          filenameAuto: this.filenameAuto
+          }, { timeout: 10000 })
+          .catch(() => {
+            // 自动保存失败不打断当前操作，下次修改时会再次尝试。
+          });
+    },
     selectChanged() {
       this.getBackendVersion();
     },

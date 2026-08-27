@@ -39,6 +39,14 @@ async def gateway_login(request: Request):
 async def gateway_logout(request: Request):
     return await gateway_auth.logout(request)
 
+@router.get("/gateway/form-config")
+async def gateway_get_form_config(request: Request):
+    return await gateway_auth.get_form_config(request)
+
+@router.post("/gateway/form-config")
+async def gateway_save_form_config(request: Request):
+    return await gateway_auth.save_form_config(request)
+
 # 首页
 @router.get("/")
 async def index(request: Request):
