@@ -13,6 +13,7 @@
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
+   生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链
 7. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
 8. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
    - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
@@ -93,6 +94,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 订阅转换界面的「后端地址」「短链选择」**默认值根据当前访问域名动态生成**
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
 - 生成的短链同样是动态的 `当前域名:端口/s/xxxx`（zurl 从反代请求头取 Host/Proto，包括非标准端口）。
+- 部署在 HTTPS 反向代理后时，nginx 会保留外层 `X-Forwarded-Proto: https`，长链、短链及登录 Cookie 均使用外部协议。
 - 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
   密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
 - 面板 Overview/侧边栏的「订阅转换」默认返回当前 `window.location.origin`，保留 7788 等非标准端口。

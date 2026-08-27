@@ -288,9 +288,10 @@
                     style="width: 250px;"
                     type="success"
                     class="action-btn-wide"
-                    icon="el-icon-video-play"
-                    @click="centerDialogVisible = true"
-                >视频教程
+                    icon="el-icon-download"
+                    @click="importToClash"
+                    :disabled="!canImportClash"
+                >一键导入 Clash
                 </el-button>
               </el-form-item>
             </el-form>
@@ -298,41 +299,6 @@
         </el-card>
       </el-col>
     </el-row>
-    <el-dialog
-        title="请选择需要观看的视频教程"
-        :visible.sync="centerDialogVisible"
-        :show-close="false"
-        :width="isPC ? '40vh' : '92%'"
-        top="30vh"
-        center>
-      <div label-width="0px" style="text-align: center">
-        <el-button
-            style="width: 200px;"
-            type="primary"
-            icon="el-icon-video-play"
-            @click="gotoBasicVideo();centerDialogVisible = false"
-        >基础视频教程
-        </el-button>
-      </div>
-      <div label-width="0px" style="text-align: center;margin: 3vh 0 2vh">
-        <el-button
-            style="width: 200px;"
-            type="danger"
-            icon="el-icon-video-play"
-            @click="gotoAdvancedVideo();centerDialogVisible = false"
-        >进阶视频教程
-        </el-button>
-      </div>
-      <div label-width="0px" style="text-align: center;margin: 3vh 0 2vh">
-        <el-button
-            style="width: 200px;"
-            type="warning"
-            icon="el-icon-download"
-            @click="toolsDown"
-        >代理工具集合
-        </el-button>
-      </div>
-    </el-dialog>
     <el-dialog
         :visible.sync="dialogUploadConfigVisible"
         :show-close="false"
@@ -467,17 +433,13 @@ const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localShort = siteOrigin + '/short'
 const configUploadBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/sub.php'
-const basicVideo = process.env.VUE_APP_BASIC_VIDEO
-const advancedVideo = process.env.VUE_APP_ADVANCED_VIDEO
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
 const bzlink = process.env.VUE_APP_BILIBILI_LINK
-const downld = window.location.origin + '/download.html'
 export default {
   data() {
     return {
       backendVersion: "",
-      centerDialogVisible: false,
       activeName: 'first',
       // 是否为 PC 端
       isPC: true,
@@ -654,6 +616,8 @@ export default {
       loading3: false,
       customSubUrl: "",
       customShortSubUrl: "",
+      // 记录短链对应的长链，避免修改配置后误导入旧短链。
+      shortUrlSource: "",
       dialogUploadConfigVisible: false,
       loadConfig: "",
       dialogLoadConfigVisible: false,
@@ -687,6 +651,9 @@ export default {
       if (this.mihomoStatus === true) return { text: "mihomo 运行中", type: "success" };
       if (this.mihomoStatus === false) return { text: "mihomo 已停止", type: "info" };
       return { text: "mihomo 状态未知", type: "danger" };
+    },
+    canImportClash() {
+      return this.customSubUrl !== "" && this.form.clientType.startsWith("clash");
     }
   },
   watch: {
@@ -835,30 +802,20 @@ export default {
     gotoYouTuBe() {
       window.open(yglink);
     },
-    toolsDown() {
-      window.open(downld);
-    },
-    gotoBasicVideo() {
-      this.$alert("别忘了关注友善的肥羊哦！", {
-        type: "warning",
-        confirmButtonText: '确定',
-        customClass: 'msgbox',
-        showClose: false,
-      })
-          .then(() => {
-            window.open(basicVideo);
-          });
-    },
-    gotoAdvancedVideo() {
-      this.$alert("别忘了关注友善的肥羊哦！", {
-        type: "warning",
-        confirmButtonText: '确定',
-        customClass: 'msgbox',
-        showClose: false,
-      })
-          .then(() => {
-            window.open(advancedVideo);
-          });
+    importToClash() {
+      if (!this.canImportClash) {
+        this.$message.error("请先生成 Clash 订阅链接");
+        return;
+      }
+      const shortUrl = this.customShortSubUrl.trim();
+      const subscriptionUrl = /^https?:\/\//i.test(shortUrl) &&
+          this.shortUrlSource === this.customSubUrl
+          ? shortUrl
+          : this.customSubUrl;
+      const name = this.form.filename.trim() || "docker-clash";
+      window.location.href = "clash://install-config?url=" +
+          encodeURIComponent(subscriptionUrl) +
+          "&name=" + encodeURIComponent(name);
     },
     makeUrl() {
       if (this.sourceSubUrl === "" || this.form.clientType === "") {
@@ -978,6 +935,7 @@ export default {
           .then(res => {
             if (res.data.Code === 1 && res.data.ShortUrl !== "") {
               this.customShortSubUrl = res.data.ShortUrl;
+              this.shortUrlSource = this.customSubUrl;
               this.$copyText(res.data.ShortUrl);
               this.$message.success("短链接已复制到剪贴板（IOS设备和Safari浏览器不支持自动复制API，需手动点击复制按钮）");
             } else {
