@@ -15,7 +15,7 @@
               <el-form-item label="订阅链接:">
                 <el-row v-for="(item, index) in form.subLinks" :key="index" :gutter="8" class="sub-link-row">
                   <el-col :xs="24" :sm="8" class="sub-link-name">
-                    <el-input v-model="item.name" placeholder="提供商名称（可选），如：机场A"/>
+                    <el-input v-model="item.name" placeholder="提供商名称/简称，如：A"/>
                   </el-col>
                   <el-col :xs="21" :sm="14">
                     <el-input v-model="item.url" placeholder="订阅链接或单节点链接"/>
@@ -25,7 +25,7 @@
                   </el-col>
                 </el-row>
                 <el-button icon="el-icon-plus" size="small" style="width:100%" @click="addSubLink">添加订阅链接</el-button>
-                <div class="sub-tip">每行一条订阅；填写提供商名称后，Clash 配置中的代理提供者（proxy-provider）会显示该名称，多条订阅可区分来源</div>
+                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider，选择五地区复写版时也会作为“香港_A”等策略组后缀</div>
               </el-form-item>
               <el-form-item label="生成类型:">
                 <el-select v-model="form.clientType" style="width: 100%">
@@ -431,7 +431,10 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 // 部署后 nginx 将 /subapi/ 反代到 SubConverter 后端，/short 反代到 zurl 短链 API
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
+const localProviderRegionBackend = siteOrigin + '/provider-regions'
 const localShort = siteOrigin + '/short'
+const customClashFullUrl = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Full.ini'
+const providerRegionConfigPrefix = 'provider-regions:'
 const configUploadBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/sub.php'
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
@@ -485,8 +488,12 @@ export default {
                 value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini"
               },
               {
-                label: "Custom_Clash_Full（全规则）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Full.ini"
+                label: "Custom_Clash_Full（GitHub 原版）",
+                value: customClashFullUrl
+              },
+              {
+                label: "Custom_Clash_Full（五地区按提供商细分）",
+                value: providerRegionConfigPrefix + customClashFullUrl
               },
               {
                 label: "Custom_Clash_Lite（精简）",
@@ -908,6 +915,15 @@ export default {
           this.form.customBackend === ""
               ? localBackend
               : this.form.customBackend;
+      let remoteConfig = this.form.remoteConfig;
+      if (remoteConfig.startsWith(providerRegionConfigPrefix)) {
+        if (this.form.clientType !== "clash") {
+          this.$message.error("五地区提供商复写版仅支持 Clash 生成类型");
+          return false;
+        }
+        backend = localProviderRegionBackend;
+        remoteConfig = remoteConfig.slice(providerRegionConfigPrefix.length);
+      }
       let sourceSub = this.sourceSubUrl;
       this.customSubUrl =
           backend +
@@ -917,9 +933,9 @@ export default {
           encodeURIComponent(sourceSub) +
           "&insert=" +
           this.form.insert;
-      if (this.form.remoteConfig !== "") {
+      if (remoteConfig !== "") {
         this.customSubUrl +=
-            "&config=" + encodeURIComponent(this.form.remoteConfig);
+            "&config=" + encodeURIComponent(remoteConfig);
       }
       if (this.form.excludeRemarks !== "") {
         this.customSubUrl +=
@@ -1176,7 +1192,9 @@ export default {
           this.$message.error("请输入正确的订阅地址!");
           return;
         }
-        this.form.customBackend = url.origin + url.pathname.replace(/\/sub$/, "")
+        const parsedBackend = url.origin + url.pathname.replace(/\/sub$/, "");
+        const providerRegionMode = parsedBackend === localProviderRegionBackend;
+        this.form.customBackend = providerRegionMode ? localBackend : parsedBackend;
         let param = new URLSearchParams(url.search);
         if (param.get("target")) {
           let target = param.get("target");
@@ -1198,7 +1216,9 @@ export default {
           this.form.insert = param.get("insert") === 'true';
         }
         if (param.get("config")) {
-          this.form.remoteConfig = param.get("config");
+          this.form.remoteConfig = providerRegionMode
+              ? providerRegionConfigPrefix + param.get("config")
+              : param.get("config");
         }
         if (param.get("exclude")) {
           this.form.excludeRemarks = param.get("exclude");
@@ -1273,9 +1293,12 @@ export default {
     },
     renderPost() {
       let data = new FormData();
+      const remoteConfig = this.form.remoteConfig.startsWith(providerRegionConfigPrefix)
+          ? this.form.remoteConfig.slice(providerRegionConfigPrefix.length)
+          : this.form.remoteConfig;
       data.append("target", encodeURIComponent(this.form.clientType));
       data.append("url", encodeURIComponent(this.sourceSubUrl));
-      data.append("config", encodeURIComponent(this.form.remoteConfig));
+      data.append("config", encodeURIComponent(remoteConfig));
       data.append("exclude", encodeURIComponent(this.form.excludeRemarks));
       data.append("include", encodeURIComponent(this.form.includeRemarks));
       data.append("rename", encodeURIComponent(this.form.rename));

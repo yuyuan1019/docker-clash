@@ -3,6 +3,7 @@ name: docker-clash
 # 一体化订阅转换 + 短链 + mihomo 面板
 # 入口：http://域名或IP/        → sub-web-modify（订阅转换界面）
 #       http://域名或IP/subapi/ → SubConverter-Extended 后端
+#       http://域名或IP/provider-regions/ → GitHub FULL 五地区提供商复写订阅
 #       http://域名或IP/short   → zurl 短链生成 API（POST，内部令牌校验）
 #       http://域名或IP/s/xxxx  → zurl 短链 302 解析跳转
 #       http://域名或IP:8080/   → metacubexd 面板

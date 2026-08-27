@@ -33,7 +33,7 @@ class UrlDeleteItem(BaseModel):
     ids: list
 
 # 限制的短链接名称（short/s 为本项目 nginx 反代保留路径）
-DENY_SHORT_URLS = ["api","init", "admin", "login", "logout", "register", "import", "export", "short", "s", "apply", "mihomo"]
+DENY_SHORT_URLS = ["api","init", "admin", "login", "logout", "register", "import", "export", "short", "s", "apply", "mihomo", "provider-regions"]
 
 class UrlAPI:
     def __init__(self):

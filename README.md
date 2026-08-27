@@ -10,7 +10,9 @@
 2. 如果 `.env` 已设置 `WEB_AUTH_ENABLED=true`，输入 `MIHOMO_SECRET` 登录（默认长期保持）；内网默认无需登录
 3. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
-4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
+4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
+   需要按机场细分地区时，选择 `Custom_Clash_Full（五地区按提供商细分）`：它保留 GitHub 最新 FULL 配置，
+   并额外生成香港、美国、日本、新加坡、台湾的 `地区_提供商` 策略组。建议把每行的提供商名称填写为简短且唯一的简称，例如 `A`、`B`
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链
@@ -53,7 +55,7 @@ docker compose restart nginx
 ```
 
 登录 Cookie 使用 HttpOnly，默认有效 10 年（由 `WEB_AUTH_TTL` 调整）；访问 `/logout` 可退出登录。修改 `MIHOMO_SECRET` 会立即使所有旧登录失效。
-`/subapi/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
+`/subapi/`、`/provider-regions/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
 
 ### 运维操作
 
@@ -86,6 +88,7 @@ docker compose up -d
 ```
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
 http://域名/subapi/  → SubConverter-Extended 订阅转换后端（官方镜像）
+http://域名/provider-regions/ → GitHub FULL 五地区提供商复写订阅（zurl 增量生成）
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
 http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
@@ -104,11 +107,16 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
+- `Custom_Clash_Full（五地区按提供商细分）`不会复制或固定上游 FULL：每次订阅刷新仍由 SubConverter 获取 GitHub 配置，
+  zurl 只克隆上游生成的香港、美国、日本、新加坡、台湾组，将 `use` 限定到单个 provider，并把派生组追加到业务策略中。
+  GitHub 原版 FULL 选项保持不变；复写订阅同样可供外部 OpenClash/Mihomo 客户端使用。
+- 所有 `/subapi/sub` Clash 转换和 `/provider-regions/sub` 提供商复写订阅都会经过统一地区兼容层：
+  `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
   容器已关闭时则启动，启动失败会回滚原配置。
 - 「打开面板」使用浏览器原生新标签页直接进入 `/xd/`；面板会按当前访问源推导后端地址，并读取容器注入的 `MIHOMO_SECRET` 自动连接。
 - 设置 `WEB_AUTH_ENABLED=true` 后，公网入口直接使用同一个 `MIHOMO_SECRET` 登录；保持 `false` 时适合可信内网免登录使用。
-- 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/` 转换结果和 `/s/` 短链接不受登录开关影响。
+- 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/`、`/provider-regions/` 转换结果和 `/s/` 短链接不受登录开关影响。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
@@ -158,7 +166,7 @@ http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动�
   - 默认远程配置改为 Custom_OpenClash_Rules（jsdelivr 地址）
   - `makeUrl`/`makeShortUrl` 兜底地址改为本站动态地址
   - `getBackendVersion` 提示语通用化；`download.html` 链接改为跟随当前协议
-  - 「从URL解析」支持带 `/subapi` 前缀的本站链接
+  - 「从URL解析」支持带 `/subapi` 或 `/provider-regions` 前缀的本站链接
   - `Dockerfile` 增加 `NPM_CONFIG_REGISTRY` 构建参数；补充 `.dockerignore`
 - **zurl**
   - 新增 `app/api/compat.py`：myurls 风格 `POST /short`（base64 longUrl + 可选 shortKey），

@@ -1,0 +1,5 @@
+# Shell scripts and container config must keep LF (Windows checkout guard)
+*.sh        text eol=lf
+*.conf      text eol=lf
+*.template  text eol=lf
+Dockerfile* text eol=lf
