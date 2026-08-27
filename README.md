@@ -73,7 +73,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
   容器已关闭时则启动，启动失败会回滚原配置。
-- 「打开面板」会生成带 `backend` 和环境 `MIHOMO_SECRET` 参数的短暂深链接，面板连接后会跳转到无密钥的 `/overview`。
+- 「打开面板」使用浏览器原生新标签页直接进入 `/xd/`；面板会按当前访问源推导后端地址，并读取容器注入的 `MIHOMO_SECRET` 自动连接。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。

@@ -7,7 +7,7 @@
             <el-tag size="small" :type="mihomoStatusTag.type" style="float:left;cursor:pointer" @click="getMihomoStatus">
               <i class="el-icon-cpu"></i> {{ mihomoStatusTag.text }}
             </el-tag>
-            <el-link type="primary" icon="el-icon-connection" style="float:right" href="#" @click.prevent="openXdPanel">打开面板</el-link>
+            <el-link type="primary" icon="el-icon-connection" style="float:right" :href="xdPanelUrl" target="_blank" rel="noopener noreferrer">打开面板</el-link>
             <div style="text-align:center;font-size:15px">订 阅 转 换</div>
           </div>
           <el-container>
@@ -663,7 +663,9 @@ export default {
       myBot: tgBotLink,
       filterConfig: filterConfigSample,
       scriptConfig: scriptConfigSample,
-      sampleConfig: remoteConfigSample
+      sampleConfig: remoteConfigSample,
+      // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
+      xdPanelUrl: window.location.origin + "/xd/"
     };
   },
   computed: {
@@ -725,25 +727,6 @@ export default {
     } //监听系统主题，自动切换！
   },
   methods: {
-    openXdPanel() {
-      const panelWindow = window.open("about:blank", "_blank");
-      this.$axios
-          .post("/mihomo/panel-url")
-          .then(res => {
-            if (res.data.Code !== 1 || !res.data.PanelUrl) {
-              throw new Error(res.data.Message || "无法获取面板地址");
-            }
-            if (panelWindow) {
-              panelWindow.location.href = res.data.PanelUrl;
-            } else {
-              window.location.href = res.data.PanelUrl;
-            }
-          })
-          .catch(err => {
-            if (panelWindow) panelWindow.close();
-            this.$message.error("打开面板失败：" + (err.message || "未知错误"));
-          });
-    },
     selectChanged() {
       this.getBackendVersion();
     },
