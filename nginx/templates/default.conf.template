@@ -7,11 +7,47 @@ server {
     # 订阅链接可能很长
     client_max_body_size 10m;
 
+    # ---- 公网入口认证：zurl 校验 HttpOnly Cookie，未登录统一跳登录页 ----
+    location = /_gateway_auth {
+        internal;
+        proxy_pass http://zurl:3080/gateway/auth;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    location = /login {
+        proxy_pass http://zurl:3080/gateway/login-page;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+    location = /gateway/login {
+        limit_except POST { deny all; }
+        proxy_pass http://zurl:3080/gateway/login;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+    location = /logout {
+        proxy_pass http://zurl:3080/gateway/logout;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+    location @gateway_login_redirect {
+        return 302 /login;
+    }
+
     # ---- metacubexd 面板（Nuxt 服务自带 baseURL=/xd/，不要去前缀）----
     location = /xd {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         return 301 /xd/;
     }
     location /xd/ {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         proxy_pass http://metacubexd:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -23,6 +59,8 @@ server {
     # ---- mihomo Clash API（路径 /clash/，含 WebSocket 升级，面板连接用）----
     # 面板后端地址填写：http(s)://当前域名/clash
     location /clash/ {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         proxy_pass http://mihomo:9090/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -38,6 +76,8 @@ server {
 
     # ---- 生成 mihomo 最新候选配置（仅 POST，不重启，同 /short）----
     location = /apply {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080/apply;
         proxy_set_header Host $host;
@@ -51,6 +91,8 @@ server {
 
     # ---- mihomo 状态查询（GET，供首页状态标签轮询）----
     location = /mihomo/status {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         proxy_pass http://zurl:3080/mihomo/status;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -62,6 +104,8 @@ server {
 
     # ---- 启停 mihomo（仅 POST，注入内部令牌，同 /short）----
     location /mihomo/ {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080;
         proxy_set_header Host $http_host;
@@ -75,6 +119,8 @@ server {
 
     # ---- zurl 短链生成 API（仅 POST，注入内部令牌，浏览器不可见）----
     location = /short {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
         proxy_pass http://zurl:3080/short;
         # 注意：location 内一旦定义 proxy_set_header，server 级的同名指令不再继承，需全部重写
@@ -125,6 +171,8 @@ server {
 
     # ---- sub-web-modify 前端（订阅转换界面）----
     location / {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         proxy_pass http://sub-web:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

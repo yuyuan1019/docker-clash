@@ -7,21 +7,50 @@
 ### 日常使用（生成订阅并启用）
 
 1. 浏览器打开 `http://服务器IP:7788/`（订阅转换首页，端口即 `.env` 的 `WEB_PORT`）
-2. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
+2. 如果 `.env` 已设置 `WEB_AUTH_ENABLED=true`，输入 `MIHOMO_SECRET` 登录（默认长期保持）；内网默认无需登录
+3. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
-3. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
-4. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
-5. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
-6. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
-7. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
+4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）
+5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
+6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
+7. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
+8. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
    - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
-8. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
+9. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
 
 ### 客户端使用
 
 - OpenClash / mihomo 系客户端：直接用生成的订阅链接或短链，配置由客户端自动更新
 - 本机 mihomo 作为局域网代理网关：7890 端口默认已映射，
   其他设备代理直接设置为 `服务器IP:7890`（不需要时到 `docker-compose.yml` 注释掉即可）
+
+### 首页登录保护（内网可关闭，公网应开启）
+
+登录保护由 `.env` 控制，登录密钥直接复用 `MIHOMO_SECRET`，不会打包进前端代码。
+
+仅在本地内网使用时，保持默认配置即可直接打开首页：
+
+```dotenv
+WEB_AUTH_ENABLED=false
+```
+
+需要从公网访问时，务必启用登录并把默认密钥改为足够长的随机字符串：
+
+```dotenv
+WEB_AUTH_ENABLED=true
+WEB_AUTH_TTL=315360000
+MIHOMO_SECRET=请替换为足够长的随机字符串
+```
+
+修改后重新构建 zurl，并重启 nginx 使认证配置生效：
+
+```bash
+docker compose up -d --build zurl
+docker compose restart nginx
+```
+
+登录 Cookie 使用 HttpOnly，默认有效 10 年（由 `WEB_AUTH_TTL` 调整）；访问 `/logout` 可退出登录。修改 `MIHOMO_SECRET` 会立即使所有旧登录失效。
+`/subapi/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
 
 ### 运维操作
 
@@ -74,6 +103,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
   容器已关闭时则启动，启动失败会回滚原配置。
 - 「打开面板」使用浏览器原生新标签页直接进入 `/xd/`；面板会按当前访问源推导后端地址，并读取容器注入的 `MIHOMO_SECRET` 自动连接。
+- 设置 `WEB_AUTH_ENABLED=true` 后，公网入口直接使用同一个 `MIHOMO_SECRET` 登录；保持 `false` 时适合可信内网免登录使用。
+- 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/` 转换结果和 `/s/` 短链接不受登录开关影响。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
@@ -88,7 +119,7 @@ cp .env.example .env
 cp config/mihomo/config.example.yaml config/mihomo/config.yaml
 
 # 2. 修改安全配置
-vi .env                        # 改 ZURL_SHORT_TOKEN（随机长字符串）；MIHOMO_SECRET 默认 yuan
+vi .env                        # 公网设置 WEB_AUTH_ENABLED=true，并修改 ZURL_SHORT_TOKEN、MIHOMO_SECRET
 vi config/mihomo/config.yaml   # secret 与 .env 的 MIHOMO_SECRET 保持一致
 
 # 2. 启动（首次会自动构建 sub-web / zurl / metacubexd）

@@ -5,6 +5,7 @@ from app.api.sys import SysAPI
 from app.api.user import UserAPI, UserItem
 from app.api.url import *
 from app.api.compat import CompatAPI
+from app.api import gateway_auth
 from app.middleware.auth import get_current_session
 from app.models.sessions import Sessions
 from app.middleware.click import update_click_counts
@@ -20,6 +21,23 @@ urlAPI = UrlAPI()
 compatAPI = CompatAPI()
 sysAPI = SysAPI()
 optionAPI = OptionAPI()
+
+# 公网入口认证（仅供 nginx auth_request 与登录页调用）
+@router.get("/gateway/auth")
+async def gateway_auth_check(request: Request):
+    return await gateway_auth.auth(request)
+
+@router.get("/gateway/login-page")
+async def gateway_login_page(request: Request):
+    return await gateway_auth.login_page(request)
+
+@router.post("/gateway/login")
+async def gateway_login(request: Request):
+    return await gateway_auth.login(request)
+
+@router.get("/gateway/logout")
+async def gateway_logout(request: Request):
+    return await gateway_auth.logout(request)
 
 # 首页
 @router.get("/")

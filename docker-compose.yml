@@ -72,6 +72,9 @@ services:
     environment:
       ZURL_SHORT_TOKEN: "${ZURL_SHORT_TOKEN:-}"
       ZURL_SHORT_PREFIX: "/s/"
+      # 内网默认不登录；公网设置 WEB_AUTH_ENABLED=true 后复用 MIHOMO_SECRET 登录
+      WEB_AUTH_ENABLED: "${WEB_AUTH_ENABLED:-false}"
+      WEB_AUTH_TTL: "${WEB_AUTH_TTL:-315360000}"
       # 转换应用后自动写入 mihomo 的管理密钥（需与 config/mihomo/config.yaml 一致）
       MIHOMO_SECRET: "${MIHOMO_SECRET:-yuan}"
       WORKERS: "1"
