@@ -77,13 +77,25 @@ class CompatAPI:
         return ""
 
     @staticmethod
-    async def _fetch_subconverter(path: str, query: str):
+    def _upstream_user_agent(query_args: dict, request: Request) -> str:
+        # SubConverter-Extended 只认 /sub 请求的 User-Agent 头（不认 diyua 参数），
+        # 并会把它写进每个 proxy-provider 的 header。回源时优先用页面自定义 UA，
+        # 其次透传客户端 UA，避免 aiohttp 默认 UA 被写进 provider 后被机场
+        # 识别成旧客户端而拒绝下发节点。
+        diyua = query_args.get("diyua", [""])[0].strip()
+        return diyua or request.headers.get("user-agent", "")
+
+    @staticmethod
+    async def _fetch_subconverter(path: str, query: str, user_agent: str = ""):
         internal_url = SUBCONVERTER_INTERNAL + path
         if query:
             internal_url += "?" + query
+        headers = {}
+        if user_agent and not any(ch in user_agent for ch in "\r\n\x00"):
+            headers["User-Agent"] = user_agent[:256]
         timeout = aiohttp.ClientTimeout(total=180)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(internal_url) as resp:
+            async with session.get(internal_url, headers=headers) as resp:
                 return resp.status, await resp.text(), dict(resp.headers)
 
     @staticmethod
@@ -114,7 +126,7 @@ class CompatAPI:
 
         try:
             status, cfg_text, upstream_headers = await self._fetch_subconverter(
-                "/sub", request.url.query
+                "/sub", request.url.query, self._upstream_user_agent(query_args, request)
             )
         except Exception as e:
             return Response(
@@ -150,16 +162,16 @@ class CompatAPI:
 
     # 普通订阅转换兼容层：保留请求参数，只修正遗漏的英文城市地区归属。
     async def subscription_compat(self, request: Request):
+        query_args = parse_qs(request.url.query)
         try:
             status, cfg_text, upstream_headers = await self._fetch_subconverter(
-                "/sub", request.url.query
+                "/sub", request.url.query, self._upstream_user_agent(query_args, request)
             )
         except Exception as e:
             return Response(
                 f"拉取转换配置失败：{e}", status_code=502, media_type="text/plain"
             )
 
-        query_args = parse_qs(request.url.query)
         if status != 200 or query_args.get("target", [""])[0] != "clash":
             return Response(cfg_text, status_code=status, media_type="text/plain")
 
@@ -172,6 +184,10 @@ class CompatAPI:
 
         fix_region_name_compatibility(config)
         prefix_duplicate_provider_nodes(config)
+        # 与五地区复写一致：把 diyua 写入 provider header，防止机场拦截旧 UA。
+        error = self._apply_provider_user_agent(config, query_args)
+        if error:
+            return Response(error, status_code=400, media_type="text/plain")
         response_headers = build_subscription_response_headers(
             upstream_headers, query_args
         )
@@ -287,7 +303,7 @@ class CompatAPI:
         # 3. 从内网拉取转换后的完整 mihomo 配置（转换可能拉取远程规则，耗时较长）
         try:
             status, cfg_text, _ = await self._fetch_subconverter(
-                internal_path, parsed.query
+                internal_path, parsed.query, self._upstream_user_agent(query_args, request)
             )
             if status != 200:
                 return _resp(0, f"订阅转换后端返回错误：HTTP {status}")
