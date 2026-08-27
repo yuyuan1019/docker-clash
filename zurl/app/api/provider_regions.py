@@ -1,5 +1,6 @@
 from copy import deepcopy
 import re
+from urllib.parse import urlsplit
 
 
 # 上游主要按节点名称分组；补齐机场常用、但当前规则未覆盖的英文城市名。
@@ -42,6 +43,55 @@ def _group_key(config: dict) -> str | None:
     if isinstance(config.get("Proxy Group"), list):
         return "Proxy Group"
     return None
+
+
+def _provider_url_family(raw_url: str) -> tuple | None:
+    """返回不包含路径或 token 的订阅来源特征。"""
+    try:
+        parsed = urlsplit(raw_url.strip())
+    except (TypeError, ValueError):
+        return None
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+        return None
+    return (
+        parsed.scheme.lower(),
+        parsed.netloc.casefold(),
+    )
+
+
+def prefix_duplicate_provider_nodes(config: dict) -> int:
+    """同源订阅账号有两条以上时，为其节点增加 provider 名称前缀。"""
+    if not isinstance(config, dict):
+        return 0
+    providers = config.get("proxy-providers")
+    if not isinstance(providers, dict):
+        return 0
+
+    families: dict[tuple, list[tuple[str, dict]]] = {}
+    for provider_name, provider in providers.items():
+        if not isinstance(provider_name, str) or not isinstance(provider, dict):
+            continue
+        family = _provider_url_family(provider.get("url", ""))
+        if family is not None:
+            families.setdefault(family, []).append((provider_name, provider))
+
+    changed = 0
+    for same_source in families.values():
+        if len(same_source) < 2:
+            continue
+        for provider_name, provider in same_source:
+            prefix = f"[{provider_name.strip()}] "
+            override = provider.get("override")
+            if not isinstance(override, dict):
+                override = {}
+                provider["override"] = override
+            current = override.get("additional-prefix", "")
+            if not isinstance(current, str):
+                current = ""
+            if not current.startswith(prefix):
+                override["additional-prefix"] = prefix + current
+                changed += 1
+    return changed
 
 
 def _append_filter_aliases(pattern: str, aliases: tuple[str, ...]) -> str:
@@ -148,6 +198,7 @@ def expand_provider_region_groups(config: dict) -> int:
 
 
     fix_region_name_compatibility(config)
+    prefix_duplicate_provider_nodes(config)
 
     providers = config.get("proxy-providers")
     group_key = _group_key(config)

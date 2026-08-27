@@ -4,6 +4,7 @@ from app.api.provider_regions import (
     REGION_GROUPS,
     expand_provider_region_groups,
     fix_region_name_compatibility,
+    prefix_duplicate_provider_nodes,
 )
 
 
@@ -146,6 +147,87 @@ class RegionNameCompatibilityTest(unittest.TestCase):
         self.assertIn("California", rendered)
         self.assertIn("Tokyo", rendered)
         self.assertIn("Incheon", rendered)
+
+
+class DuplicateProviderPrefixTest(unittest.TestCase):
+    def test_prefixes_only_accounts_with_same_url_family(self):
+        config = {
+            "proxy-providers": {
+                "喵喵-账号1": {
+                    "type": "http",
+                    "url": "https://example.com/api/subscribe?token=aaa&type=clash",
+                },
+                "喵喵-账号2": {
+                    "type": "http",
+                    "url": "https://example.com/api/subscribe?type=clash&token=bbb",
+                    "override": {"udp": True},
+                },
+                "其他机场": {
+                    "type": "http",
+                    "url": "https://other.example/sub?token=ccc",
+                },
+            },
+            "proxy-groups": [],
+        }
+
+        changed = prefix_duplicate_provider_nodes(config)
+
+        self.assertEqual(2, changed)
+        providers = config["proxy-providers"]
+        self.assertEqual(
+            "[喵喵-账号1] ",
+            providers["喵喵-账号1"]["override"]["additional-prefix"],
+        )
+        self.assertEqual(
+            "[喵喵-账号2] ",
+            providers["喵喵-账号2"]["override"]["additional-prefix"],
+        )
+        self.assertTrue(providers["喵喵-账号2"]["override"]["udp"])
+        self.assertNotIn("override", providers["其他机场"])
+
+    def test_preserves_existing_prefix_and_is_idempotent(self):
+        config = {
+            "proxy-providers": {
+                "A1": {
+                    "url": "https://example.com/sub?token=one",
+                    "override": {"additional-prefix": "[自定义] "},
+                },
+                "A2": {"url": "https://example.com/sub?token=two"},
+            },
+            "proxy-groups": [],
+        }
+
+        changed = prefix_duplicate_provider_nodes(config)
+        changed_again = prefix_duplicate_provider_nodes(config)
+
+        self.assertEqual(2, changed)
+        self.assertEqual(0, changed_again)
+        self.assertEqual(
+            "[A1] [自定义] ",
+            config["proxy-providers"]["A1"]["override"]["additional-prefix"],
+        )
+
+    def test_groups_same_origin_even_when_token_location_differs(self):
+        config = {
+            "proxy-providers": {
+                "A": {"url": "https://example.com/sub?token=one"},
+                "B": {"url": "https://example.com/sub/two"},
+            },
+            "proxy-groups": [],
+        }
+
+        self.assertEqual(2, prefix_duplicate_provider_nodes(config))
+
+    def test_does_not_group_different_origins(self):
+        config = {
+            "proxy-providers": {
+                "A": {"url": "https://one.example/sub?token=one"},
+                "B": {"url": "https://two.example/sub?token=two"},
+            },
+            "proxy-groups": [],
+        }
+
+        self.assertEqual(0, prefix_duplicate_provider_nodes(config))
 
 
 if __name__ == "__main__":

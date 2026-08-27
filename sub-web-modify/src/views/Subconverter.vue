@@ -25,7 +25,7 @@
                   </el-col>
                 </el-row>
                 <el-button icon="el-icon-plus" size="small" style="width:100%" @click="addSubLink">添加订阅链接</el-button>
-                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider，选择五地区复写版时也会作为“香港_A”等策略组后缀</div>
+                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider 和地区组后缀；同源多账号请填写唯一名称，节点会自动增加来源前缀</div>
               </el-form-item>
               <el-form-item label="生成类型:">
                 <el-select v-model="form.clientType" style="width: 100%">
@@ -901,10 +901,8 @@ export default {
           this.shortUrlSource === this.customSubUrl
           ? shortUrl
           : this.customSubUrl;
-      const name = this.form.filename.trim() || "docker-clash";
       window.location.href = "clash://install-config?url=" +
-          encodeURIComponent(subscriptionUrl) +
-          "&name=" + encodeURIComponent(name);
+          encodeURIComponent(subscriptionUrl);
     },
     makeUrl() {
       if (this.sourceSubUrl === "" || this.form.clientType === "") {

@@ -20,7 +20,9 @@ from fastapi import Request, Response
 from app.api.provider_regions import (
     expand_provider_region_groups,
     fix_region_name_compatibility,
+    prefix_duplicate_provider_nodes,
 )
+from app.api.subscription_headers import build_subscription_response_headers
 from app.api.url import DENY_SHORT_URLS
 from app.models.conn import get_db_session
 from app.models.urls import Urls
@@ -137,11 +139,9 @@ class CompatAPI:
         if error:
             return Response(error, status_code=400, media_type="text/plain")
 
-        normalized_headers = {name.lower(): value for name, value in upstream_headers.items()}
-        response_headers = {}
-        for name in ("subscription-userinfo", "profile-update-interval"):
-            if normalized_headers.get(name):
-                response_headers[name] = normalized_headers[name]
+        response_headers = build_subscription_response_headers(
+            upstream_headers, query_args
+        )
         return Response(
             yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
             media_type="text/yaml",
@@ -171,11 +171,10 @@ class CompatAPI:
             return Response(cfg_text, status_code=status, media_type="text/plain")
 
         fix_region_name_compatibility(config)
-        normalized_headers = {name.lower(): value for name, value in upstream_headers.items()}
-        response_headers = {}
-        for name in ("subscription-userinfo", "profile-update-interval"):
-            if normalized_headers.get(name):
-                response_headers[name] = normalized_headers[name]
+        prefix_duplicate_provider_nodes(config)
+        response_headers = build_subscription_response_headers(
+            upstream_headers, query_args
+        )
         return Response(
             yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
             media_type="text/yaml",
@@ -304,6 +303,8 @@ class CompatAPI:
 
         if apply_provider_regions:
             expand_provider_region_groups(new_cfg)
+        else:
+            prefix_duplicate_provider_nodes(new_cfg)
 
         # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}

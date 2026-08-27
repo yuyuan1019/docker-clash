@@ -9,13 +9,15 @@
 1. 浏览器打开 `http://服务器IP:7788/`（订阅转换首页，端口即 `.env` 的 `WEB_PORT`）
 2. 如果 `.env` 已设置 `WEB_AUTH_ENABLED=true`，输入 `MIHOMO_SECRET` 登录（默认长期保持）；内网默认无需登录
 3. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
-   多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字
+   多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
+   同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
    需要按机场细分地区时，选择 `Custom_Clash_Full（五地区按提供商细分）`：它保留 GitHub 最新 FULL 配置，
    并额外生成香港、美国、日本、新加坡、台湾的 `地区_提供商` 策略组。建议把每行的提供商名称填写为简短且唯一的简称，例如 `A`、`B`
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
-   生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链
+   生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
+   “订阅命名”通过订阅响应的 `Content-Disposition` 传给 Clash Verge，长链和短链导入均会使用该名称
 7. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
 8. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
    - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
@@ -99,6 +101,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 订阅转换界面的「后端地址」「短链选择」**默认值根据当前访问域名动态生成**
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
 - 生成的短链同样是动态的 `当前域名:端口/s/xxxx`（zurl 从反代请求头取 Host/Proto，包括非标准端口）。
+- 一键导入使用 Clash Verge 支持的 `clash://install-config?url=...` 格式；zurl 会转发 SubConverter 的
+  `Content-Disposition`，上游未返回时根据 `filename` 参数生成该响应头，使页面“订阅命名”成为客户端配置名称。
 - 部署在 HTTPS 反向代理后时，nginx 会保留外层 `X-Forwarded-Proto: https`，长链、短链及登录 Cookie 均使用外部协议。
 - 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
   密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
@@ -112,6 +116,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   GitHub 原版 FULL 选项保持不变；复写订阅同样可供外部 OpenClash/Mihomo 客户端使用。
 - 所有 `/subapi/sub` Clash 转换和 `/provider-regions/sub` 提供商复写订阅都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
+- 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
+  并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
   容器已关闭时则启动，启动失败会回滚原配置。
 - 「打开面板」使用浏览器原生新标签页直接进入 `/xd/`；面板会按当前访问源推导后端地址，并读取容器注入的 `MIHOMO_SECRET` 自动连接。
