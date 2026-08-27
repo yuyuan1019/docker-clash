@@ -6,7 +6,7 @@ name: docker-clash
 #       http://域名或IP/provider-regions/ → GitHub FULL 五地区提供商复写订阅
 #       http://域名或IP/short   → zurl 短链生成 API（POST，内部令牌校验）
 #       http://域名或IP/s/xxxx  → zurl 短链 302 解析跳转
-#       http://域名或IP:8080/   → metacubexd 面板
+#       http://域名或IP/xd/     → metacubexd 官方面板
 #       http://域名或IP:9090/   → mihomo Clash API（面板连接用）
 #       7890 端口               → mihomo 混合代理端口
 
@@ -107,28 +107,14 @@ services:
     networks:
       - clash-net
 
-  # ---------- 前端 2：metacubexd 面板（经 nginx /xd/ 路径访问）----------
+  # ---------- 官方 metacubexd 面板（经 nginx /xd/ 路径访问）----------
   metacubexd:
-    build:
-      context: ./metacubexd
-      dockerfile: packages/ui/Dockerfile
-      args:
-        # 面板部署在 /xd/ 子路径下
-        NUXT_APP_BASE_URL: "/xd/"
-        # NAS 构建默认禁用 Google Fonts 元数据请求，改用系统字体回退
-        MCXD_OFFLINE_FONTS: "true"
-        # 国内构建可取消注释使用 npmmirror 源
-        # NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
+    image: ghcr.io/metacubex/metacubexd:latest
     container_name: metacubexd
     restart: unless-stopped
     environment:
-      # 预填面板的后端地址，例如 http://你的域名/clash
-      # 留空则按当前访问地址自动推导为 当前源 + /clash（自动跟随 Web 端口）
+      # 官方镜像仅支持预填后端地址；留空时在面板中手动填写 当前访问地址/clash
       DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
-      # 预填面板的连接密钥（默认与 mihomo secret 一致）
-      DEFAULT_BACKEND_SECRET: "${MIHOMO_SECRET:-yuan}"
-      # 订阅转换首页地址（侧边栏快捷跳转）；留空则跟随面板当前地址和端口
-      SUB_WEB_URL: "${SUB_WEB_URL:-}"
     depends_on:
       - mihomo
     networks:

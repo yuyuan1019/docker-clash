@@ -62,7 +62,9 @@ server {
         return 302 /login;
     }
 
-    # ---- metacubexd 面板（Nuxt 服务自带 baseURL=/xd/，不要去前缀）----
+    # ---- 官方 metacubexd 面板 ----
+    # 官方镜像按根路径构建；反代时去掉 /xd 前缀，并把 HTML 中的 Nuxt
+    # 资源地址和运行时 baseURL 改为 /xd/，镜像本身无需重新编译。
     location = /xd {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
@@ -71,11 +73,16 @@ server {
     location /xd/ {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
-        proxy_pass http://metacubexd:80;
+        proxy_pass http://metacubexd:80/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_set_header Accept-Encoding "";
+        sub_filter_once off;
+        sub_filter 'href="/_nuxt/' 'href="/xd/_nuxt/';
+        sub_filter 'src="/_nuxt/' 'src="/xd/_nuxt/';
+        sub_filter 'baseURL:"/"' 'baseURL:"/xd/"';
         proxy_read_timeout 60s;
     }
 

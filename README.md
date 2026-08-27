@@ -20,7 +20,7 @@
    “订阅命名”通过订阅响应的 `Content-Disposition` 传给 Clash Verge，长链和短链导入均会使用该名称
 7. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
 8. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
-   - 后端地址与密钥会自动预填（地址按当前访问地址推导为 `/clash`，密钥取 `.env` 的 `MIHOMO_SECRET`），点连接即可
+   - 面板使用官方预构建镜像。首次使用时，后端地址填写 `当前访问地址/clash`，密钥填写 `.env` 的 `MIHOMO_SECRET`；连接信息会保存在浏览器中
 9. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
 
 页面会把订阅地址、提供商名称、远程配置和高级选项自动保存到服务器的 `data/zurl/web-form-config.json`，使用其他电脑登录同一站点时也会恢复同一份配置；生成后的长链、短链不会保存。该站点共用一份配置，多台设备修改时以最后一次保存为准。此文件包含原始订阅地址，应与 `.env` 一样妥善保护，不要提交到 Git 或公开分享。
@@ -66,9 +66,9 @@ docker compose up -d          # 启动/更新（配置变更后）
 docker compose stop           # 停止全部服务（数据保留在 ./data）
 docker compose start          # 恢复
 docker compose logs -f zurl   # 看某个服务日志（zurl/subconverter/mihomo/nginx...）
-docker compose pull && docker compose up -d   # 升级 subconverter/mihomo 官方镜像
-# 本地构建的三个前端/后端改了代码后：
-docker compose build sub-web zurl metacubexd && docker compose up -d
+docker compose pull && docker compose up -d   # 升级 subconverter/mihomo/metacubexd 官方镜像
+# 本地构建的前端/后端改了代码后：
+docker compose build sub-web zurl && docker compose up -d
 ```
 
 ### 部署到其他机器
@@ -94,7 +94,7 @@ http://域名/provider-regions/ → GitHub FULL 五地区提供商复写订阅�
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
 http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
-http://域名/xd/      → metacubexd 面板（Nuxt baseURL=/xd/，本地构建）
+http://域名/xd/      → metacubexd 官方面板镜像（nginx 适配 /xd/ 子路径）
 http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 ```
 
@@ -104,10 +104,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 一键导入使用 Clash Verge 支持的 `clash://install-config?url=...` 格式；zurl 会转发 SubConverter 的
   `Content-Disposition`，上游未返回时根据 `filename` 参数生成该响应头，使页面“订阅命名”成为客户端配置名称。
 - 部署在 HTTPS 反向代理后时，nginx 会保留外层 `X-Forwarded-Proto: https`，长链、短链及登录 Cookie 均使用外部协议。
-- 面板连接地址与密钥**自动预填**：地址按当前访问源推导为 `当前源/clash`（换端口、换域名无需配置），
-  密钥取 `.env` 的 `MIHOMO_SECRET`（与 `config/mihomo/config.yaml` 的 `secret` 一致）。
-- 面板 Overview/侧边栏的「订阅转换」默认返回当前 `window.location.origin`，保留 7788 等非标准端口。
-- metacubexd 容器构建默认使用离线字体模式，不访问 Google Fonts；pnpm 使用实体复制安装，避免 Synology/BuildKit 丢失 Nuxt 硬链接入口。
+- metacubexd 使用官方 `ghcr.io/metacubex/metacubexd:latest` 预构建镜像，不在群晖本地编译；
+  首次连接时填写 `当前访问源/clash` 和 `MIHOMO_SECRET`。也可在 `.env` 的 `DEFAULT_BACKEND_URL` 中预填完整后端地址。
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
@@ -120,7 +118,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
   容器已关闭时则启动，启动失败会回滚原配置。
-- 「打开面板」使用浏览器原生新标签页直接进入 `/xd/`；面板会按当前访问源推导后端地址，并读取容器注入的 `MIHOMO_SECRET` 自动连接。
+- 「打开面板」使用浏览器原生新标签页进入同源 `/xd/` 官方面板；连接地址和密钥由用户在官方面板中填写并保存。
 - 设置 `WEB_AUTH_ENABLED=true` 后，公网入口直接使用同一个 `MIHOMO_SECRET` 登录；保持 `false` 时适合可信内网免登录使用。
 - 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/`、`/provider-regions/` 转换结果和 `/s/` 短链接不受登录开关影响。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
@@ -140,12 +138,12 @@ cp config/mihomo/config.example.yaml config/mihomo/config.yaml
 vi .env                        # 公网设置 WEB_AUTH_ENABLED=true，并修改 ZURL_SHORT_TOKEN、MIHOMO_SECRET
 vi config/mihomo/config.yaml   # secret 与 .env 的 MIHOMO_SECRET 保持一致
 
-# 2. 启动（首次会自动构建 sub-web / zurl / metacubexd）
+# 2. 启动（首次构建 sub-web / zurl，并拉取 metacubexd 等官方镜像）
 docker compose up -d
 
 # 3. 访问（默认 Web 端口 7788）
 http://服务器IP:7788/       订阅转换
-http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动预填，直接点连接）
+http://服务器IP:7788/xd/    metacubexd 官方面板
 ```
 
 国内构建加速：编辑 `docker-compose.yml`，取消各服务 `args` 里的
@@ -158,7 +156,6 @@ http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动�
 | `sub-web-modify/` | 订阅转换前端（已改为动态域名默认值） |
 | `SubConverter-Extended/` | 转换后端源码（默认用官方镜像；`base/pref.toml` 已挂载，可自行定制） |
 | `zurl/` | 短链服务（新增 `app/api/compat.py` 兼容层：`POST /short`） |
-| `metacubexd/` | 面板（使用 `packages/ui/Dockerfile` 构建纯 UI） |
 | `nginx/templates/` | 网关配置（envsubst 模板） |
 | `config/mihomo/config.yaml` | mihomo 内核配置 |
 | `data/` | 运行数据（zurl sqlite/redis、mihomo 缓存） |
@@ -179,7 +176,6 @@ http://服务器IP:7788/xd/    metacubexd 面板（后端地址与密钥自动�
   - `POST /apply` 只生成候选 `latest.yaml`；`POST /mihomo/latest-config` 才切换当前配置并重启 mihomo
   - `app/routers/routers.py` 注册 `/short`、`/apply` 路由；`DENY_SHORT_URLS` 增加 `short`、`s`、`apply`
   - `Dockerfile` 增加 `PIP_INDEX_URL` 构建参数；`requirements.txt` 增加 `pyyaml`；补充 `.dockerignore`
-- **metacubexd** `packages/ui/Dockerfile` 增加 `NUXT_APP_BASE_URL` 构建参数（子路径 /xd/ 部署）并禁用 PWA、增加 `NPM_CONFIG_REGISTRY` 构建参数；`nuxt.config.ts` 增加 `subWebUrl` 运行时配置；`components/Sidebar.vue` 侧边栏新增「订阅转换」快捷入口
 - **SubConverter-Extended**：无代码修改，仅复制 `base/pref.example.toml` → `base/pref.toml` 用于挂载
 
 ## 安全提示
