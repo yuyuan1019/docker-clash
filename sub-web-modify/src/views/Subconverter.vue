@@ -432,9 +432,41 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localProviderRegionBackend = siteOrigin + '/provider-regions'
+const localSmartBackend = siteOrigin + '/smart'
+const localSmartProviderRegionBackend = siteOrigin + '/smart-provider-regions'
 const localShort = siteOrigin + '/short'
+const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/'
+const customClashUrl = name => customClashConfigBase + name
 const customClashFullUrl = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Full.ini'
 const providerRegionConfigPrefix = 'provider-regions:'
+const smartConfigPrefix = 'smart:'
+const smartProviderRegionConfigPrefix = 'smart-provider-regions:'
+const builtInConfigModes = [
+  {
+    prefix: smartProviderRegionConfigPrefix,
+    backend: localSmartProviderRegionBackend,
+    clashOnlyMessage: 'Smart 五地区提供商版仅支持 Clash 生成类型'
+  },
+  {
+    prefix: providerRegionConfigPrefix,
+    backend: localProviderRegionBackend,
+    clashOnlyMessage: '五地区提供商复写版仅支持 Clash 生成类型'
+  },
+  {
+    prefix: smartConfigPrefix,
+    backend: localSmartBackend,
+    clashOnlyMessage: 'Smart 专版仅支持 Clash 生成类型'
+  }
+]
+
+function resolveBuiltInConfigMode(remoteConfig) {
+  return builtInConfigModes.find(mode => remoteConfig.startsWith(mode.prefix))
+}
+
+function stripBuiltInConfigPrefix(remoteConfig) {
+  const mode = resolveBuiltInConfigMode(remoteConfig)
+  return mode ? remoteConfig.slice(mode.prefix.length) : remoteConfig
+}
 const configUploadBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/sub.php'
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
@@ -485,7 +517,7 @@ export default {
             options: [
               {
                 label: "Custom_Clash（默认推荐）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini"
+                value: customClashUrl("Custom_Clash.ini")
               },
               {
                 label: "Custom_Clash_Full（GitHub 原版）",
@@ -497,31 +529,76 @@ export default {
               },
               {
                 label: "Custom_Clash_Lite（精简）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Lite.ini"
+                value: customClashUrl("Custom_Clash_Lite.ini")
               },
               {
                 label: "Custom_Clash_GFW（仅GFW名单）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_GFW.ini"
+                value: customClashUrl("Custom_Clash_GFW.ini")
               },
               {
                 label: "Custom_Clash_Mainland（回国）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Mainland.ini"
+                value: customClashUrl("Custom_Clash_Mainland.ini")
               },
               {
                 label: "Custom_Clash_Fallback（故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Fallback.ini"
+                value: customClashUrl("Custom_Clash_Fallback.ini")
               },
               {
                 label: "Custom_Clash_Full_Fallback（全规则+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Full_Fallback.ini"
+                value: customClashUrl("Custom_Clash_Full_Fallback.ini")
               },
               {
                 label: "Custom_Clash_Lite_Fallback（精简+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Lite_Fallback.ini"
+                value: customClashUrl("Custom_Clash_Lite_Fallback.ini")
               },
               {
                 label: "Custom_Clash_GFW_Fallback（GFW+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_GFW_Fallback.ini"
+                value: customClashUrl("Custom_Clash_GFW_Fallback.ini")
+              }
+            ]
+          },
+          {
+            label: "Custom_Clash Smart 专版（仅 OpenClash Smart 内核）",
+            options: [
+              {
+                label: "Smart（默认版）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash.ini")
+              },
+              {
+                label: "Smart Full（全规则）",
+                value: smartConfigPrefix + customClashFullUrl
+              },
+              {
+                label: "Smart Full（五地区按提供商细分）",
+                value: smartProviderRegionConfigPrefix + customClashFullUrl
+              },
+              {
+                label: "Smart Lite（精简）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_Lite.ini")
+              },
+              {
+                label: "Smart GFW（仅 GFW 名单）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_GFW.ini")
+              },
+              {
+                label: "Smart Mainland（回国）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_Mainland.ini")
+              },
+              {
+                label: "Smart Fallback（智能+故障转移）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_Fallback.ini")
+              },
+              {
+                label: "Smart Full Fallback（全规则+故障转移）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_Full_Fallback.ini")
+              },
+              {
+                label: "Smart Lite Fallback（精简+故障转移）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_Lite_Fallback.ini")
+              },
+              {
+                label: "Smart GFW Fallback（GFW+故障转移）",
+                value: smartConfigPrefix + customClashUrl("Custom_Clash_GFW_Fallback.ini")
               }
             ]
           },
@@ -914,13 +991,14 @@ export default {
               ? localBackend
               : this.form.customBackend;
       let remoteConfig = this.form.remoteConfig;
-      if (remoteConfig.startsWith(providerRegionConfigPrefix)) {
+      const builtInMode = resolveBuiltInConfigMode(remoteConfig);
+      if (builtInMode) {
         if (this.form.clientType !== "clash") {
-          this.$message.error("五地区提供商复写版仅支持 Clash 生成类型");
+          this.$message.error(builtInMode.clashOnlyMessage);
           return false;
         }
-        backend = localProviderRegionBackend;
-        remoteConfig = remoteConfig.slice(providerRegionConfigPrefix.length);
+        backend = builtInMode.backend;
+        remoteConfig = remoteConfig.slice(builtInMode.prefix.length);
       }
       let sourceSub = this.sourceSubUrl;
       this.customSubUrl =
@@ -1191,8 +1269,8 @@ export default {
           return;
         }
         const parsedBackend = url.origin + url.pathname.replace(/\/sub$/, "");
-        const providerRegionMode = parsedBackend === localProviderRegionBackend;
-        this.form.customBackend = providerRegionMode ? localBackend : parsedBackend;
+        const builtInMode = builtInConfigModes.find(mode => mode.backend === parsedBackend);
+        this.form.customBackend = builtInMode ? localBackend : parsedBackend;
         let param = new URLSearchParams(url.search);
         if (param.get("target")) {
           let target = param.get("target");
@@ -1214,8 +1292,8 @@ export default {
           this.form.insert = param.get("insert") === 'true';
         }
         if (param.get("config")) {
-          this.form.remoteConfig = providerRegionMode
-              ? providerRegionConfigPrefix + param.get("config")
+          this.form.remoteConfig = builtInMode
+              ? builtInMode.prefix + param.get("config")
               : param.get("config");
         }
         if (param.get("exclude")) {
@@ -1291,9 +1369,7 @@ export default {
     },
     renderPost() {
       let data = new FormData();
-      const remoteConfig = this.form.remoteConfig.startsWith(providerRegionConfigPrefix)
-          ? this.form.remoteConfig.slice(providerRegionConfigPrefix.length)
-          : this.form.remoteConfig;
+      const remoteConfig = stripBuiltInConfigPrefix(this.form.remoteConfig);
       data.append("target", encodeURIComponent(this.form.clientType));
       data.append("url", encodeURIComponent(this.sourceSubUrl));
       data.append("config", encodeURIComponent(remoteConfig));

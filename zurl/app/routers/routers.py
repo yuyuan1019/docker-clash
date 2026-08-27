@@ -77,6 +77,17 @@ async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
 async def compat_provider_region_subscription(request: Request):
     return await compatAPI.provider_region_subscription(request=request)
 
+# 基于 GitHub 最新配置动态复写的 Smart 专版订阅；仅供 Smart 内核使用。
+@router.get("/smart/sub")
+async def compat_smart_subscription(request: Request):
+    return await compatAPI.smart_subscription(request=request)
+
+
+# Smart Full + 五地区按 provider 细分组合版。
+@router.get("/smart-provider-regions/sub")
+async def compat_smart_provider_region_subscription(request: Request):
+    return await compatAPI.smart_subscription(request=request, provider_regions=True)
+
 # nginx 将普通 /subapi/sub 定点转到这里，其余 SubConverter API 保持直连。
 @router.get("/subapi-compat/sub")
 async def compat_subscription(request: Request):

@@ -14,6 +14,8 @@
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
    需要按机场细分地区时，选择 `Custom_Clash_Full（五地区按提供商细分）`：它保留 GitHub 最新 FULL 配置，
    并额外生成香港、美国、日本、新加坡、台湾的 `地区_提供商` 策略组。建议把每行的提供商名称填写为简短且唯一的简称，例如 `A`、`B`
+   使用 OpenClash **Smart 内核**时，可在 `Custom_Clash Smart 专版` 分组选择对应版本；默认、Full、Lite、GFW、Mainland
+   及四个 Fallback 版本均实时基于 GitHub 上游生成，不保存静态副本。Smart 配置不能用于本站官方 Mihomo 容器。
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
@@ -91,6 +93,8 @@ docker compose up -d
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
 http://域名/subapi/  → SubConverter-Extended 订阅转换后端（官方镜像）
 http://域名/provider-regions/ → GitHub FULL 五地区提供商复写订阅（zurl 增量生成）
+http://域名/smart/   → GitHub 最新配置 Smart 动态复写订阅（仅 OpenClash Smart 内核）
+http://域名/smart-provider-regions/ → Smart Full 五地区按 provider 细分组合版
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
 http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
@@ -112,6 +116,11 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - `Custom_Clash_Full（五地区按提供商细分）`不会复制或固定上游 FULL：每次订阅刷新仍由 SubConverter 获取 GitHub 配置，
   zurl 只克隆上游生成的香港、美国、日本、新加坡、台湾组，将 `use` 限定到单个 provider，并把派生组追加到业务策略中。
   GitHub 原版 FULL 选项保持不变；复写订阅同样可供外部 OpenClash/Mihomo 客户端使用。
+- Smart 专版同样先由 SubConverter 获取所选 GitHub `main` 分支配置，再把 `url-test` / `load-balance` 自动组动态改为
+  `type: smart`，启用 `uselightgbm`、关闭本机训练数据采集，并保留 select/fallback 业务层及上游测试参数。
+  Fallback 专版因此仍按上游顺序完成故障转移，内部自动组则使用 Smart 选路。该格式依赖
+  [OpenClash Smart 内核](https://github.com/vernesong/OpenClash/tree/core/master/smart)，普通 Meta/Mihomo 内核不支持；
+  首页“生成最新配置”会明确拒绝把 Smart 专版切换到本站官方 Mihomo 容器，避免启动失败。
 - 所有 `/subapi/sub` Clash 转换和 `/provider-regions/sub` 提供商复写订阅都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
