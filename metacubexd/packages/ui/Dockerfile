@@ -16,10 +16,6 @@ COPY apps/ apps/
 # Synology/BuildKit 的 overlayfs 可能无法在镜像层之间稳定保留 pnpm 的
 # clone/hardlink 和隔离软链接，表现为安装成功但 Nuxt dist/app/entry.js
 # 在下一层构建时无法解析。使用实体复制 + hoisted 布局，避免跨层软链接失效。
-RUN pnpm install --frozen-lockfile --package-import-method=copy \
-    --node-linker=hoisted \
-    && pnpm --filter @metacubexd/ui exec node -e \
-      "const fs=require('fs');const path=require('path');const root=path.dirname(require.resolve('nuxt/package.json'));if(!fs.existsSync(path.join(root,'dist/app/entry.js')))process.exit(1)"
 # 子路径部署支持：构建期注入 Nuxt baseURL（如 /xd/，经 nginx 反代）；
 # 子路径下禁用 PWA，避免 Service Worker 缓存作用域问题
 ARG NUXT_APP_BASE_URL=/
@@ -27,7 +23,12 @@ ARG MCXD_OFFLINE_FONTS=true
 ENV NUXT_APP_BASE_URL=${NUXT_APP_BASE_URL} \
     MCXD_DISABLE_PWA=true \
     MCXD_OFFLINE_FONTS=${MCXD_OFFLINE_FONTS}
-RUN pnpm --filter @metacubexd/ui build
+# 安装、校验和构建保持在同一层，避免群晖 overlayfs 在层间丢失 pnpm/Nuxt 文件。
+RUN pnpm install --frozen-lockfile --package-import-method=copy \
+    --node-linker=hoisted \
+    && pnpm --filter @metacubexd/ui exec node -e \
+      "const fs=require('fs');const path=require('path');const root=path.dirname(require.resolve('nuxt/package.json'));if(!fs.existsSync(path.join(root,'dist/app/entry.js')))process.exit(1)" \
+    && pnpm --filter @metacubexd/ui build
 # -> /repo/packages/ui/.output (Nitro node-server preset, serves the CSR panel)
 
 # ---- Stage 2: slim runtime ----
