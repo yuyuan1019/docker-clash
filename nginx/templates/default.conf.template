@@ -4,6 +4,9 @@ server {
     listen 80;
     server_name _;
 
+    # 保持重定向为相对地址，让浏览器沿用外部访问的协议、域名和端口（如 :7788）。
+    absolute_redirect off;
+
     # 订阅链接可能很长
     client_max_body_size 10m;
 
