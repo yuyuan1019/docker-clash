@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-row class="sub-main-row" style="margin-top: 10px">
+    <el-row class="sub-main-row">
       <el-col :xs="24" :sm="22" :md="22" :lg="20" :xl="16" class="sub-main-col">
         <el-card class="sub-card" shadow="hover">
           <div slot="header">
@@ -11,7 +11,7 @@
             <div style="text-align:center;font-size:15px">订 阅 转 换</div>
           </div>
           <el-container>
-            <el-form :model="form" label-width="80px" label-position="left" style="width: 100%">
+            <el-form class="sub-form" :model="form" label-width="88px" label-position="left">
               <el-form-item label="订阅链接:">
                 <el-row v-for="(item, index) in form.subLinks" :key="index" :gutter="8" class="sub-link-row">
                   <el-col :xs="24" :sm="8" class="sub-link-name">
@@ -77,7 +77,7 @@
                   </el-option-group>
                 </el-select>
               </el-form-item>
-              <el-form-item label-width="0px">
+              <el-form-item class="advanced-section" label-width="0px">
                 <el-collapse>
                   <el-collapse-item>
                     <template slot="title">
@@ -182,8 +182,7 @@
                   </el-collapse-item>
                 </el-collapse>
               </el-form-item>
-              <div style="margin-top: 30px"></div>
-              <el-divider content-position="center">
+              <el-divider class="result-divider" content-position="center">
                 <el-button
                     type="zhuti"
                     @click="change">
@@ -191,7 +190,7 @@
                   <i id="yejian" class="el-icon-moon"></i>
                 </el-button>
               </el-divider>
-              <el-form-item label="定制订阅:">
+              <el-form-item class="result-field" label="定制订阅:">
                 <el-input class="copy-content" disabled v-model="customSubUrl">
                   <el-button
                       slot="append"
@@ -203,7 +202,7 @@
                   </el-button>
                 </el-input>
               </el-form-item>
-              <el-form-item label="订阅短链:">
+              <el-form-item class="result-field" label="订阅短链:">
                 <el-input class="copy-content" v-model="customShortSubUrl"
                           placeholder="输入自定义短链接后缀，点击生成短链接可反复生成">
                   <el-button
@@ -216,7 +215,7 @@
                   </el-button>
                 </el-input>
               </el-form-item>
-              <el-form-item label-width="0px" style="margin-top: 40px; text-align: center">
+              <el-form-item class="action-group action-group-primary" label-width="0px">
                 <el-button
                     style="width: 120px"
                     type="danger"
@@ -263,7 +262,7 @@
                 >关闭 mihomo
                 </el-button>
               </el-form-item>
-              <el-form-item label-width="0px" style="text-align: center">
+              <el-form-item class="action-group action-group-secondary" label-width="0px">
                 <el-button
                     style="width: 120px"
                     type="primary"
@@ -283,7 +282,7 @@
                 >从URL解析
                 </el-button>
               </el-form-item>
-              <el-form-item label-width="0px" style="text-align: center">
+              <el-form-item class="action-group action-group-import" label-width="0px">
                 <el-button
                     style="width: 250px;"
                     type="success"
@@ -1442,24 +1441,45 @@ export default {
 </script>
 
 <style>
-/* ===== docker-clash 定制：页面美化与移动端适配（仅布局/间距，不影响明暗主题配色）===== */
-.sub-main-row {
-  padding: 0 8px;
+/* ===== docker-clash 定制：页面美化与响应式间距（不影响明暗主题配色）===== */
+#app .sub-main-row.el-row:not(.el-row--flex) {
+  margin-top: 0 !important;
+  max-width: none;
+  padding: 18px clamp(20px, 4vw, 64px) 42px !important;
 }
 /* el-col 默认 float:left，改为不浮动 + 自动外边距实现稳定居中 */
-.sub-main-col {
+.sub-main-row > .sub-main-col {
   float: none;
+  width: 100% !important;
   margin: 0 auto;
-  max-width: 1280px;
+  max-width: 1480px;
 }
 .sub-card {
   border-radius: 14px;
 }
 .sub-card > .el-card__header {
-  padding: 14px 18px;
+  padding: 17px 24px;
 }
-.sub-link-row {
-  margin-bottom: 8px;
+.sub-card > .el-card__body {
+  padding: 28px 32px 32px;
+}
+.sub-form {
+  width: 100%;
+}
+.sub-form > .el-form-item {
+  margin-bottom: 26px;
+}
+.sub-form > .el-form-item > .el-form-item__label {
+  font-weight: 600;
+}
+.advanced-section {
+  margin-top: 2px;
+  margin-bottom: 36px !important;
+}
+#app .sub-card .sub-link-row.el-row:not(.el-row--flex) {
+  max-width: none;
+  margin: 0 0 12px !important;
+  padding: 0 !important;
 }
 .sub-link-del {
   margin-top: 4px;
@@ -1468,13 +1488,42 @@ export default {
   font-size: 12px;
   color: #909399;
   line-height: 1.6;
+  margin-top: 8px;
+}
+.result-divider {
+  margin: 42px 0 34px;
+}
+.result-field {
+  margin-bottom: 24px !important;
+}
+.action-group {
+  margin-bottom: 16px !important;
+}
+.action-group > .el-form-item__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 14px;
+  line-height: normal;
+}
+.action-group .el-button + .el-button {
+  margin-left: 0;
+}
+.action-group-primary {
+  margin-top: 42px;
+}
+.action-group-secondary {
   margin-top: 4px;
+}
+.action-group-import {
+  margin-top: 6px;
 }
 
 /* 移动端适配 */
 @media (max-width: 767px) {
-  .sub-main-row {
-    padding: 0 4px;
+  #app .sub-main-row.el-row:not(.el-row--flex) {
+    padding: 0 4px 20px !important;
     margin-top: 4px !important;
   }
   .sub-card {
@@ -1482,6 +1531,21 @@ export default {
   }
   .sub-card > .el-card__body {
     padding: 14px 12px;
+  }
+  .sub-form > .el-form-item {
+    margin-bottom: 20px;
+  }
+  .advanced-section {
+    margin-bottom: 26px !important;
+  }
+  .result-divider {
+    margin: 30px 0 26px;
+  }
+  .action-group-primary {
+    margin-top: 30px;
+  }
+  .action-group > .el-form-item__content {
+    gap: 0;
   }
   /* 提供商+链接行：移动端名称独占一行，链接与删除按钮同行 */
   .sub-link-name {
