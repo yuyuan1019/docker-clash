@@ -437,7 +437,6 @@ const localSmartProviderRegionBackend = siteOrigin + '/smart-provider-regions'
 const localShort = siteOrigin + '/short'
 const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/'
 const customClashUrl = name => customClashConfigBase + name
-const customClashFullUrl = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash_Full.ini'
 const providerRegionConfigPrefix = 'provider-regions:'
 const smartConfigPrefix = 'smart:'
 const smartProviderRegionConfigPrefix = 'smart-provider-regions:'
@@ -445,12 +444,12 @@ const builtInConfigModes = [
   {
     prefix: smartProviderRegionConfigPrefix,
     backend: localSmartProviderRegionBackend,
-    clashOnlyMessage: 'Smart 五地区提供商版仅支持 Clash 生成类型'
+    clashOnlyMessage: 'Smart 香港/日本提供商版仅支持 Clash 生成类型'
   },
   {
     prefix: providerRegionConfigPrefix,
     backend: localProviderRegionBackend,
-    clashOnlyMessage: '五地区提供商复写版仅支持 Clash 生成类型'
+    clashOnlyMessage: '香港/日本提供商复写版仅支持 Clash 生成类型'
   },
   {
     prefix: smartConfigPrefix,
@@ -466,6 +465,86 @@ function resolveBuiltInConfigMode(remoteConfig) {
 function stripBuiltInConfigPrefix(remoteConfig) {
   const mode = resolveBuiltInConfigMode(remoteConfig)
   return mode ? remoteConfig.slice(mode.prefix.length) : remoteConfig
+}
+const customClashVariants = [
+  {
+    file: 'Custom_Clash.ini',
+    label: 'Custom_Clash（默认推荐）',
+    providerLabel: 'Custom_Clash（香港/日本按提供商细分）',
+    smartLabel: 'Smart（默认版）',
+    smartProviderLabel: 'Smart（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Full.ini',
+    label: 'Custom_Clash_Full（GitHub 原版）',
+    providerLabel: 'Custom_Clash_Full（香港/日本按提供商细分）',
+    smartLabel: 'Smart Full（全规则）',
+    smartProviderLabel: 'Smart Full（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Lite.ini',
+    label: 'Custom_Clash_Lite（精简）',
+    providerLabel: 'Custom_Clash_Lite（香港/日本按提供商细分）',
+    smartLabel: 'Smart Lite（精简）',
+    smartProviderLabel: 'Smart Lite（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_GFW.ini',
+    label: 'Custom_Clash_GFW（仅GFW名单）',
+    providerLabel: 'Custom_Clash_GFW（香港/日本按提供商细分）',
+    smartLabel: 'Smart GFW（仅 GFW 名单）',
+    smartProviderLabel: 'Smart GFW（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Mainland.ini',
+    label: 'Custom_Clash_Mainland（回国）',
+    providerLabel: 'Custom_Clash_Mainland（香港/日本按提供商细分）',
+    smartLabel: 'Smart Mainland（回国）',
+    smartProviderLabel: 'Smart Mainland（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Fallback.ini',
+    label: 'Custom_Clash_Fallback（故障转移）',
+    providerLabel: 'Custom_Clash_Fallback（香港/日本按提供商细分）',
+    smartLabel: 'Smart Fallback（智能+故障转移）',
+    smartProviderLabel: 'Smart Fallback（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Full_Fallback.ini',
+    label: 'Custom_Clash_Full_Fallback（全规则+故障转移）',
+    providerLabel: 'Custom_Clash_Full_Fallback（香港/日本按提供商细分）',
+    smartLabel: 'Smart Full Fallback（全规则+故障转移）',
+    smartProviderLabel: 'Smart Full Fallback（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_Lite_Fallback.ini',
+    label: 'Custom_Clash_Lite_Fallback（精简+故障转移）',
+    providerLabel: 'Custom_Clash_Lite_Fallback（香港/日本按提供商细分）',
+    smartLabel: 'Smart Lite Fallback（精简+故障转移）',
+    smartProviderLabel: 'Smart Lite Fallback（香港/日本按提供商细分）'
+  },
+  {
+    file: 'Custom_Clash_GFW_Fallback.ini',
+    label: 'Custom_Clash_GFW_Fallback（GFW+故障转移）',
+    providerLabel: 'Custom_Clash_GFW_Fallback（香港/日本按提供商细分）',
+    smartLabel: 'Smart GFW Fallback（GFW+故障转移）',
+    smartProviderLabel: 'Smart GFW Fallback（香港/日本按提供商细分）'
+  }
+]
+
+function buildCustomClashOptions(smart = false) {
+  return customClashVariants.reduce((options, variant) => {
+    const configUrl = customClashUrl(variant.file)
+    options.push({
+      label: smart ? variant.smartLabel : variant.label,
+      value: (smart ? smartConfigPrefix : '') + configUrl
+    })
+    options.push({
+      label: smart ? variant.smartProviderLabel : variant.providerLabel,
+      value: (smart ? smartProviderRegionConfigPrefix : providerRegionConfigPrefix) + configUrl
+    })
+    return options
+  }, [])
 }
 const configUploadBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/sub.php'
 const tgBotLink = process.env.VUE_APP_BOT_LINK
@@ -514,93 +593,11 @@ export default {
         remoteConfig: [
           {
             label: "Custom_Clash（OpenClash/mihomo）",
-            options: [
-              {
-                label: "Custom_Clash（默认推荐）",
-                value: customClashUrl("Custom_Clash.ini")
-              },
-              {
-                label: "Custom_Clash_Full（GitHub 原版）",
-                value: customClashFullUrl
-              },
-              {
-                label: "Custom_Clash_Full（五地区按提供商细分）",
-                value: providerRegionConfigPrefix + customClashFullUrl
-              },
-              {
-                label: "Custom_Clash_Lite（精简）",
-                value: customClashUrl("Custom_Clash_Lite.ini")
-              },
-              {
-                label: "Custom_Clash_GFW（仅GFW名单）",
-                value: customClashUrl("Custom_Clash_GFW.ini")
-              },
-              {
-                label: "Custom_Clash_Mainland（回国）",
-                value: customClashUrl("Custom_Clash_Mainland.ini")
-              },
-              {
-                label: "Custom_Clash_Fallback（故障转移）",
-                value: customClashUrl("Custom_Clash_Fallback.ini")
-              },
-              {
-                label: "Custom_Clash_Full_Fallback（全规则+故障转移）",
-                value: customClashUrl("Custom_Clash_Full_Fallback.ini")
-              },
-              {
-                label: "Custom_Clash_Lite_Fallback（精简+故障转移）",
-                value: customClashUrl("Custom_Clash_Lite_Fallback.ini")
-              },
-              {
-                label: "Custom_Clash_GFW_Fallback（GFW+故障转移）",
-                value: customClashUrl("Custom_Clash_GFW_Fallback.ini")
-              }
-            ]
+            options: buildCustomClashOptions()
           },
           {
             label: "Custom_Clash Smart 专版（仅 OpenClash Smart 内核）",
-            options: [
-              {
-                label: "Smart（默认版）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash.ini")
-              },
-              {
-                label: "Smart Full（全规则）",
-                value: smartConfigPrefix + customClashFullUrl
-              },
-              {
-                label: "Smart Full（五地区按提供商细分）",
-                value: smartProviderRegionConfigPrefix + customClashFullUrl
-              },
-              {
-                label: "Smart Lite（精简）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_Lite.ini")
-              },
-              {
-                label: "Smart GFW（仅 GFW 名单）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_GFW.ini")
-              },
-              {
-                label: "Smart Mainland（回国）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_Mainland.ini")
-              },
-              {
-                label: "Smart Fallback（智能+故障转移）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_Fallback.ini")
-              },
-              {
-                label: "Smart Full Fallback（全规则+故障转移）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_Full_Fallback.ini")
-              },
-              {
-                label: "Smart Lite Fallback（精简+故障转移）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_Lite_Fallback.ini")
-              },
-              {
-                label: "Smart GFW Fallback（GFW+故障转移）",
-                value: smartConfigPrefix + customClashUrl("Custom_Clash_GFW_Fallback.ini")
-              }
-            ]
+            options: buildCustomClashOptions(true)
           },
           {
             label: "Custom_Stash（Stash）",

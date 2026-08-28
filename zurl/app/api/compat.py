@@ -22,7 +22,11 @@ from app.api.provider_regions import (
     fix_region_name_compatibility,
     prefix_duplicate_provider_nodes,
 )
-from app.api.smart_groups import convert_smart_groups, smart_request_error
+from app.api.smart_groups import (
+    convert_smart_groups,
+    custom_clash_request_error,
+    smart_request_error,
+)
 from app.api.subscription_headers import build_subscription_response_headers
 from app.api.url import DENY_SHORT_URLS
 from app.models.conn import get_db_session
@@ -48,14 +52,6 @@ MIHOMO_CONTAINER = os.environ.get("MIHOMO_CONTAINER", "mihomo")
 MIHOMO_EXTERNAL_CONTROLLER = os.environ.get("MIHOMO_EXTERNAL_CONTROLLER", "0.0.0.0:9090")
 MIHOMO_SECRET = os.environ.get("MIHOMO_SECRET", "yuan")
 
-PROVIDER_REGION_CONFIG_HOSTS = {
-    "testingcf.jsdelivr.net",
-    "cdn.jsdelivr.net",
-    "raw.githubusercontent.com",
-}
-PROVIDER_REGION_CONFIG_NAME = "Custom_Clash_Full.ini"
-
-
 def _resp(code: int, message: str, short_url: str = ""):
     # 前端按 res.data.Code === 1 && res.data.ShortUrl !== "" 判断成功，
     # 失败时展示 res.data.Message，因此始终返回 HTTP 200 + 该结构。
@@ -65,17 +61,7 @@ def _resp(code: int, message: str, short_url: str = ""):
 class CompatAPI:
     @staticmethod
     def _provider_region_request_error(query_args: dict) -> str:
-        if query_args.get("target", [""])[0] != "clash":
-            return "提供商地区复写仅支持 Clash 配置"
-        config_url = query_args.get("config", [""])[0].strip()
-        parsed_config = urlparse(config_url)
-        if (
-            parsed_config.scheme != "https"
-            or parsed_config.hostname not in PROVIDER_REGION_CONFIG_HOSTS
-            or not parsed_config.path.endswith("/" + PROVIDER_REGION_CONFIG_NAME)
-        ):
-            return "提供商地区复写仅支持 GitHub 原版 Custom_Clash_Full.ini"
-        return ""
+        return custom_clash_request_error(query_args, "香港/日本提供商复写版")
 
     @staticmethod
     def _upstream_user_agent(query_args: dict, request: Request) -> str:
@@ -118,7 +104,7 @@ class CompatAPI:
                 headers["User-Agent"] = [provider_user_agent]
         return ""
 
-    # 可直接作为订阅地址使用：先取 GitHub FULL 转换结果，再增量生成五地区 provider 组。
+    # 可直接作为订阅地址使用：先取页面所选 GitHub 配置，再增量生成港日 provider 组。
     async def provider_region_subscription(self, request: Request):
         query_args = parse_qs(request.url.query)
         error = self._provider_region_request_error(query_args)
@@ -249,7 +235,7 @@ class CompatAPI:
 
         fix_region_name_compatibility(config)
         prefix_duplicate_provider_nodes(config)
-        # 与五地区复写一致：把 diyua 写入 provider header，防止机场拦截旧 UA。
+        # 与港日提供商复写一致：把 diyua 写入 provider header，防止机场拦截旧 UA。
         error = self._apply_provider_user_agent(config, query_args)
         if error:
             return Response(error, status_code=400, media_type="text/plain")

@@ -37,10 +37,10 @@ def _is_supported_config_path(hostname: str, path: str, config_name: str) -> boo
     }
 
 
-def smart_request_error(query_args: dict) -> str:
-    """校验 Smart 专版只复写受信任的 GitHub 上游 Clash 配置。"""
+def custom_clash_request_error(query_args: dict, feature_name: str) -> str:
+    """校验功能只复写页面内置且受信任的 GitHub Clash 配置。"""
     if query_args.get("target", [""])[0] != "clash":
-        return "Smart 专版仅支持 Clash 配置"
+        return f"{feature_name}仅支持 Clash 配置"
 
     config_url = query_args.get("config", [""])[0].strip()
     parsed = urlparse(config_url)
@@ -51,8 +51,13 @@ def smart_request_error(query_args: dict) -> str:
         or config_name not in SMART_CONFIG_NAMES
         or not _is_supported_config_path(parsed.hostname, parsed.path, config_name)
     ):
-        return "Smart 专版仅支持页面内置的 GitHub Custom_Clash 配置"
+        return f"{feature_name}仅支持页面内置的 GitHub Custom_Clash 配置"
     return ""
+
+
+def smart_request_error(query_args: dict) -> str:
+    """校验 Smart 专版只复写受信任的 GitHub 上游 Clash 配置。"""
+    return custom_clash_request_error(query_args, "Smart 专版")
 
 
 def convert_smart_groups(config: dict) -> int:

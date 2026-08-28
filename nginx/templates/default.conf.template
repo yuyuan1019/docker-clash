@@ -213,9 +213,9 @@ server {
         proxy_connect_timeout 60s;
     }
 
-    # ---- GitHub FULL 提供商地区复写版订阅 ----
+    # ---- GitHub 各 Clash 版本香港/日本提供商复写版订阅 ----
     # 与 /subapi/ 一样保持公开，代理客户端需要定时刷新；zurl 内部仍只允许
-    # Custom_Clash_Full.ini，并在转换后增量扩展五个地区组。
+    # 页面内置的受信任 GitHub 配置，并在转换后增量扩展香港、日本组。
     location /provider-regions/ {
         proxy_pass http://zurl:3080;
         proxy_set_header Host $http_host;
@@ -240,7 +240,7 @@ server {
         proxy_connect_timeout 60s;
     }
 
-    # ---- Smart Full + 五地区按 provider 细分 ----
+    # ---- Smart 各版本 + 香港、日本按 provider 细分 ----
     location /smart-provider-regions/ {
         proxy_pass http://zurl:3080;
         proxy_set_header Host $http_host;

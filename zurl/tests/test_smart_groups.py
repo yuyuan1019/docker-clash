@@ -9,6 +9,7 @@ from app.api.compat import CompatAPI
 from app.api.smart_groups import (
     SMART_CONFIG_NAMES,
     convert_smart_groups,
+    custom_clash_request_error,
     smart_request_error,
 )
 
@@ -47,6 +48,24 @@ class SmartRequestValidationTest(unittest.TestCase):
             with self.subTest(config_url=config_url):
                 query = {"target": ["clash"], "config": [config_url]}
                 self.assertEqual("", smart_request_error(query))
+
+    def test_provider_region_mode_accepts_every_page_clash_version(self):
+        for config_name in SMART_CONFIG_NAMES:
+            with self.subTest(config_name=config_name):
+                query = {
+                    "target": ["clash"],
+                    "config": [
+                        "https://testingcf.jsdelivr.net/gh/Aethersailor/"
+                        "Custom_OpenClash_Rules@refs/heads/main/cfg/"
+                        + config_name
+                    ],
+                }
+                self.assertEqual(
+                    "",
+                    custom_clash_request_error(
+                        query, "香港/日本提供商复写版"
+                    ),
+                )
 
     def test_rejects_non_clash_and_untrusted_config(self):
         self.assertIn(
@@ -216,6 +235,44 @@ class SmartSubscriptionTest(unittest.TestCase):
         self.assertEqual("smart", groups["🇭🇰 香港_A"]["type"])
         self.assertEqual(["A"], groups["🇭🇰 香港_A"]["use"])
         self.assertEqual("smart", groups["🇭🇰 香港_B"]["type"])
+
+    def test_gfw_fallback_provider_mode_synthesizes_smart_region_groups(self):
+        upstream = {
+            "proxy-providers": {
+                "A": {"type": "http", "url": "https://a.invalid/sub"},
+            },
+            "proxy-groups": [
+                {
+                    "name": "🚀 故障转移",
+                    "type": "fallback",
+                    "proxies": ["A 节点"],
+                    "url": "https://cp.cloudflare.com/generate_204",
+                    "interval": 300,
+                }
+            ],
+        }
+        query = (
+            "target=clash&config=https://testingcf.jsdelivr.net/gh/"
+            "Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/"
+            "Custom_Clash_GFW_Fallback.ini"
+        )
+        fetch = AsyncMock(
+            return_value=(200, yaml.safe_dump(upstream, allow_unicode=True), {})
+        )
+
+        with patch.object(CompatAPI, "_fetch_subconverter", fetch):
+            response = asyncio.run(
+                CompatAPI().smart_subscription(
+                    make_request(query), provider_regions=True
+                )
+            )
+
+        self.assertEqual(200, response.status_code)
+        config = yaml.safe_load(response.body)
+        groups = {group["name"]: group for group in config["proxy-groups"]}
+        self.assertEqual("smart", groups["🇭🇰 香港_A"]["type"])
+        self.assertEqual("smart", groups["🇯🇵 日本_A"]["type"])
+        self.assertIn("🇭🇰 香港_A", groups["🚀 故障转移"]["proxies"])
 
     def test_rejects_unsupported_remote_config_before_fetch(self):
         request = make_request(

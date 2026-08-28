@@ -24,7 +24,7 @@ class ProviderRegionGroupsTest(unittest.TestCase):
     def build_config(self):
         region_groups = [
             region_group(name, f"filter-{index}")
-            for index, (name, _) in enumerate(REGION_GROUPS)
+            for index, (name, _, _) in enumerate(REGION_GROUPS)
         ]
         return {
             "proxy-providers": {
@@ -35,42 +35,58 @@ class ProviderRegionGroupsTest(unittest.TestCase):
                 {
                     "name": "🚀 手动选择",
                     "type": "select",
-                    "proxies": [name for name, _ in REGION_GROUPS],
+                    "proxies": [name for name, _, _ in REGION_GROUPS],
                 },
                 {
                     "name": "📹 YouTube",
                     "type": "select",
-                    "proxies": ["🚀 手动选择", *[name for name, _ in REGION_GROUPS]],
+                    "proxies": [
+                        "🚀 手动选择",
+                        *[name for name, _, _ in REGION_GROUPS],
+                    ],
                 },
                 {
                     "name": "🐟 漏网之鱼",
                     "type": "select",
-                    "proxies": ["🚀 手动选择", *[name for name, _ in REGION_GROUPS]],
+                    "proxies": [
+                        "🚀 手动选择",
+                        *[name for name, _, _ in REGION_GROUPS],
+                    ],
                 },
                 *region_groups,
             ],
         }
 
-    def test_adds_five_regions_for_each_provider(self):
+    def test_adds_hong_kong_and_japan_for_each_provider(self):
         config = self.build_config()
 
         added = expand_provider_region_groups(config)
 
-        self.assertEqual(10, added)
+        self.assertEqual(4, added)
         groups = {group["name"]: group for group in config["proxy-groups"]}
         self.assertEqual(["A"], groups["🇭🇰 香港_A"]["use"])
         self.assertEqual(["B"], groups["🇭🇰 香港_B"]["use"])
         self.assertEqual("filter-0", groups["🇭🇰 香港_A"]["filter"])
         self.assertNotIn("proxies", groups["🇭🇰 香港_A"])
 
-    def test_expands_business_groups_but_keeps_base_groups_unchanged(self):
+    def test_expands_selectable_groups_but_keeps_excluded_groups_unchanged(self):
         config = self.build_config()
         original_manual = list(config["proxy-groups"][0]["proxies"])
 
         expand_provider_region_groups(config)
 
         groups = {group["name"]: group for group in config["proxy-groups"]}
-        self.assertEqual(original_manual, groups["🚀 手动选择"]["proxies"])
+        self.assertEqual(
+            [
+                original_manual[0],
+                "🇭🇰 香港_A",
+                "🇭🇰 香港_B",
+                original_manual[1],
+                "🇯🇵 日本_A",
+                "🇯🇵 日本_B",
+            ],
+            groups["🚀 手动选择"]["proxies"],
+        )
         self.assertEqual(
             ["🚀 手动选择", *original_manual],
             groups["🐟 漏网之鱼"]["proxies"],
@@ -80,8 +96,75 @@ class ProviderRegionGroupsTest(unittest.TestCase):
             ["🇭🇰 香港节点", "🇭🇰 香港_A", "🇭🇰 香港_B"],
             youtube[1:4],
         )
-        self.assertIn("🇼🇸 台湾_A", youtube)
-        self.assertIn("🇼🇸 台湾_B", youtube)
+        self.assertIn("🇯🇵 日本_A", youtube)
+        self.assertIn("🇯🇵 日本_B", youtube)
+        self.assertNotIn("🇼🇸 台湾_A", youtube)
+
+    def test_gfw_variant_without_base_regions_uses_automatic_group_template(self):
+        config = {
+            "proxy-providers": {
+                "A": {"type": "http", "url": "https://a.invalid/sub"},
+                "B": {"type": "http", "url": "https://b.invalid/sub"},
+            },
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择"],
+                },
+                {
+                    "name": "♻️ 自动选择",
+                    "type": "url-test",
+                    "use": ["A", "B"],
+                    "filter": ".*",
+                    "url": "https://cp.cloudflare.com/generate_204",
+                    "interval": 300,
+                    "tolerance": 50,
+                },
+            ],
+        }
+
+        added = expand_provider_region_groups(config)
+
+        self.assertEqual(4, added)
+        groups = {group["name"]: group for group in config["proxy-groups"]}
+        self.assertEqual(
+            [
+                "♻️ 自动选择",
+                "🇭🇰 香港_A",
+                "🇭🇰 香港_B",
+                "🇯🇵 日本_A",
+                "🇯🇵 日本_B",
+            ],
+            groups["🚀 手动选择"]["proxies"],
+        )
+        self.assertEqual(["A"], groups["🇭🇰 香港_A"]["use"])
+        self.assertIn("香港", groups["🇭🇰 香港_A"]["filter"])
+        self.assertEqual(["B"], groups["🇯🇵 日本_B"]["use"])
+        self.assertIn("日本", groups["🇯🇵 日本_B"]["filter"])
+
+    def test_gfw_fallback_variant_uses_fallback_group_template(self):
+        config = {
+            "proxy-providers": {
+                "A": {"type": "http", "url": "https://a.invalid/sub"},
+            },
+            "proxy-groups": [
+                {
+                    "name": "🚀 故障转移",
+                    "type": "fallback",
+                    "proxies": ["A 节点 1", "A 节点 2"],
+                    "url": "https://cp.cloudflare.com/generate_204",
+                    "interval": 300,
+                }
+            ],
+        }
+
+        self.assertEqual(2, expand_provider_region_groups(config))
+        groups = {group["name"]: group for group in config["proxy-groups"]}
+        self.assertEqual("url-test", groups["🇯🇵 日本_A"]["type"])
+        self.assertEqual(["A"], groups["🇯🇵 日本_A"]["use"])
+        self.assertNotIn("proxies", groups["🇯🇵 日本_A"])
+        self.assertIn("🇭🇰 香港_A", groups["🚀 故障转移"]["proxies"])
 
     def test_is_idempotent(self):
         config = self.build_config()

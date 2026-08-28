@@ -72,7 +72,7 @@ async def compat_short_create(request: Request, longUrl: str = Form(...), shortK
 async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
     return await compatAPI.apply_to_mihomo(sub_url=subUrl, request=request)
 
-# GitHub FULL 提供商地区复写订阅；保持公开，供 Mihomo/OpenClash 定时刷新。
+# GitHub 各 Clash 版本的港日提供商复写订阅；保持公开，供客户端定时刷新。
 @router.get("/provider-regions/sub")
 async def compat_provider_region_subscription(request: Request):
     return await compatAPI.provider_region_subscription(request=request)
@@ -83,7 +83,7 @@ async def compat_smart_subscription(request: Request):
     return await compatAPI.smart_subscription(request=request)
 
 
-# Smart Full + 五地区按 provider 细分组合版。
+# Smart + 香港、日本按 provider 细分组合版。
 @router.get("/smart-provider-regions/sub")
 async def compat_smart_provider_region_subscription(request: Request):
     return await compatAPI.smart_subscription(request=request, provider_regions=True)

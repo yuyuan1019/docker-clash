@@ -17,24 +17,31 @@ _ALL_ALIAS_PATTERN = "|".join(
 )
 
 
-# 仅扩展首批确认的五个地区。名称与 Custom_Clash_Full 当前的基础策略组一致；
-# 派生组直接克隆转换结果，地区正则和测速参数仍由上游配置维护。
+# 只按用户实际需要细分香港、日本。名称与 Custom_Clash 各版本的基础策略组一致；
+# 优先克隆上游地区组。GFW 等没有地区组的精简版本则从其自动/故障转移组
+# 继承测速参数，并使用这里的兼容过滤器。
 REGION_GROUPS = (
-    ("🇭🇰 香港节点", "🇭🇰 香港"),
-    ("🇺🇸 美国节点", "🇺🇸 美国"),
-    ("🇯🇵 日本节点", "🇯🇵 日本"),
-    ("🇸🇬 新加坡节点", "🇸🇬 新加坡"),
-    ("🇼🇸 台湾节点", "🇼🇸 台湾"),
+    (
+        "🇭🇰 香港节点",
+        "🇭🇰 香港",
+        r"(?i)(🇭🇰|香港|\bHK\b|Hong ?Kong|Hongkong|HKG|九龙|Kowloon|新界)",
+    ),
+    (
+        "🇯🇵 日本节点",
+        "🇯🇵 日本",
+        r"(?i)(🇯🇵|日本|东京|大阪|\bJP\b|Japan|JPN|NRT|HND|KIX|TYO|OSA|Tokyo)",
+    ),
 )
 
 EXCLUDED_PARENT_GROUPS = {
-    "🚀 手动选择",
     "♻️ 自动选择",
     "🎯 全球直连",
     "🐟 漏网之鱼",
     "🔀 非标端口",
-    *(name for name, _ in REGION_GROUPS),
+    *(name for name, _, _ in REGION_GROUPS),
 }
+
+PROVIDER_SOURCE_GROUP_NAMES = ("♻️ 自动选择", "🚀 故障转移")
 
 
 def _group_key(config: dict) -> str | None:
@@ -187,11 +194,32 @@ def fix_region_name_compatibility(config: dict) -> int:
     return changed
 
 
+def _provider_group_template(
+    original_by_name: dict[str, dict], original_name: str, region_filter: str
+) -> dict | None:
+    original = original_by_name.get(original_name)
+    if isinstance(original, dict):
+        return original
+
+    for source_name in PROVIDER_SOURCE_GROUP_NAMES:
+        source = original_by_name.get(source_name)
+        if isinstance(source, dict):
+            derived = deepcopy(source)
+            # GFW Fallback 只有顶层 fallback；派生地区组仍应负责在单个
+            # provider 内测速选优，顶层再按故障转移顺序使用它们。
+            if derived.get("type") == "fallback":
+                derived["type"] = "url-test"
+            derived["filter"] = region_filter
+            derived.pop("exclude-filter", None)
+            return derived
+    return None
+
+
 def expand_provider_region_groups(config: dict) -> int:
-    """按 provider 克隆五个地区组，并把它们加入业务策略组。
+    """按 provider 克隆香港、日本组，并把它们加入可选择的策略组。
 
     返回新增的派生策略组数量。输入会原地修改；缺少 proxy-provider 或地区组时
-    保持配置不变，便于继续兼容 GitHub 上游配置的其他变体。
+    尽量保持配置不变，便于继续兼容 GitHub 上游配置的其他变体。
     """
     if not isinstance(config, dict):
         return 0
@@ -215,9 +243,11 @@ def expand_provider_region_groups(config: dict) -> int:
     derived_by_region: dict[str, list[str]] = {}
     derived_groups: list[dict] = []
 
-    for original_name, derived_prefix in REGION_GROUPS:
-        original = original_by_name.get(original_name)
-        if not isinstance(original, dict):
+    for original_name, derived_prefix, region_filter in REGION_GROUPS:
+        template = _provider_group_template(
+            original_by_name, original_name, region_filter
+        )
+        if not isinstance(template, dict):
             continue
 
         region_names: list[str] = []
@@ -229,11 +259,12 @@ def expand_provider_region_groups(config: dict) -> int:
                 region_names.append(derived_name)
                 continue
 
-            derived = deepcopy(original)
+            derived = deepcopy(template)
             derived["name"] = derived_name
             derived["use"] = [provider_name]
-            # 派生组必须严格限定 provider，不能继承未来上游可能加入的其他成员。
+            # 派生组必须严格限定 provider，不能继承上游可能加入的静态成员。
             derived.pop("proxies", None)
+            derived.pop("exclude-filter", None)
             derived_groups.append(derived)
             existing_names.add(derived_name)
             region_names.append(derived_name)
@@ -244,7 +275,14 @@ def expand_provider_region_groups(config: dict) -> int:
     if not derived_by_region:
         return 0
 
-    # 只扩展引用标准地区组的业务组；基础手动/自动/地区组保持上游原样。
+    all_derived_names = [
+        derived_name
+        for original_name, _, _ in REGION_GROUPS
+        for derived_name in derived_by_region.get(original_name, [])
+    ]
+
+    # 已引用标准地区组时紧随其后插入；GFW 等无地区组版本则统一追加。
+    # 自动、直连、漏网、非标端口和基础地区组继续保持上游语义。
     for group in groups:
         if not isinstance(group, dict) or group.get("name") in EXCLUDED_PARENT_GROUPS:
             continue
@@ -265,6 +303,10 @@ def expand_provider_region_groups(config: dict) -> int:
                 if derived_name not in seen:
                     expanded.append(derived_name)
                     seen.add(derived_name)
+        for derived_name in all_derived_names:
+            if derived_name not in seen:
+                expanded.append(derived_name)
+                seen.add(derived_name)
         group["proxies"] = expanded
 
     groups.extend(derived_groups)
