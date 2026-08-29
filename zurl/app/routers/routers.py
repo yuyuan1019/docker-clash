@@ -72,11 +72,6 @@ async def compat_short_create(request: Request, longUrl: str = Form(...), shortK
 async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
     return await compatAPI.apply_to_mihomo(sub_url=subUrl, request=request)
 
-# GitHub 各 Clash 版本的港日提供商复写订阅；保持公开，供客户端定时刷新。
-@router.get("/provider-regions/sub")
-async def compat_provider_region_subscription(request: Request):
-    return await compatAPI.provider_region_subscription(request=request)
-
 # nginx 将普通 /subapi/sub 定点转到这里，其余 SubConverter API 保持直连。
 @router.get("/subapi-compat/sub")
 async def compat_subscription(request: Request):

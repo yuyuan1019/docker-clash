@@ -12,9 +12,7 @@
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
-   每个 Custom_Clash 版本都提供对应的`香港/日本按提供商细分`选项：它保留所选 GitHub 最新配置，
-   并额外生成香港、日本的 `地区_提供商` 策略组。建议把每行的提供商名称填写为简短且唯一的简称，例如 `A`、`B`
-   `Custom_Clash Smart 专版`、`Custom_Stash` 及后端 `/smart` 路由已彻底移除，远程配置只保留 GitHub 上的 Custom_Clash 系列直链。
+   远程配置只保留 GitHub 上的 Custom_Clash 系列直链；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
@@ -58,7 +56,7 @@ docker compose restart nginx
 ```
 
 登录 Cookie 使用 HttpOnly，默认有效 10 年（由 `WEB_AUTH_TTL` 调整）；访问 `/logout` 可退出登录。修改 `MIHOMO_SECRET` 会立即使所有旧登录失效。
-`/subapi/`、`/provider-regions/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
+`/subapi/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
 
 ### 运维操作
 
@@ -91,7 +89,6 @@ docker compose up -d
 ```
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
 http://域名/subapi/  → SubConverter-Extended 订阅转换后端（官方镜像）
-http://域名/provider-regions/ → GitHub 各 Clash 版本港日提供商复写订阅（zurl 增量生成）
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
 http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
@@ -110,11 +107,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
-- 每个 Custom_Clash 版本都有`香港/日本按提供商细分`选项，不会复制或固定上游配置：每次订阅刷新仍由
-  SubConverter 获取所选 GitHub 配置，zurl 只克隆上游香港、日本组，将 `use` 限定到单个 provider，并把派生组追加到
-  可选择的策略中。GFW/GFW Fallback 上游没有地区组时，会继承其自动/故障转移参数生成港日组。
-  GitHub 原版选项保持不变；普通复写订阅同样可供外部 OpenClash/Mihomo 客户端使用。
-- 所有 `/subapi/sub` Clash 转换和 `/provider-regions/sub` 提供商复写订阅都会经过统一地区兼容层：
+- 所有 `/subapi/sub` Clash 转换都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
@@ -122,7 +115,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   容器已关闭时则启动，启动失败会回滚原配置。
 - 「打开面板」使用浏览器原生新标签页进入同源 `/xd/` 官方面板；连接地址和密钥由用户在官方面板中填写并保存。
 - 设置 `WEB_AUTH_ENABLED=true` 后，公网入口直接使用同一个 `MIHOMO_SECRET` 登录；保持 `false` 时适合可信内网免登录使用。
-- 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/`、`/provider-regions/` 转换结果和 `/s/` 短链接不受登录开关影响。
+- 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/` 转换结果和 `/s/` 短链接不受登录开关影响。
 - 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
@@ -170,7 +163,7 @@ http://服务器IP:7788/xd/    metacubexd 官方面板
   - 默认远程配置改为 Custom_OpenClash_Rules（GitHub `cfg` 目录直链）
   - `makeUrl`/`makeShortUrl` 兜底地址改为本站动态地址
   - `getBackendVersion` 提示语通用化；`download.html` 链接改为跟随当前协议
-  - 「从URL解析」支持带 `/subapi` 或 `/provider-regions` 前缀的本站链接
+  - 「从URL解析」支持带 `/subapi` 前缀的本站链接
   - `Dockerfile` 增加 `NPM_CONFIG_REGISTRY` 构建参数；补充 `.dockerignore`
 - **zurl**
   - 新增 `app/api/compat.py`：myurls 风格 `POST /short`（base64 longUrl + 可选 shortKey），

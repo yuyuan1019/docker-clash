@@ -213,20 +213,6 @@ server {
         proxy_connect_timeout 60s;
     }
 
-    # ---- GitHub 各 Clash 版本香港/日本提供商复写版订阅 ----
-    # 与 /subapi/ 一样保持公开，代理客户端需要定时刷新；zurl 内部仍只允许
-    # 页面内置的受信任 GitHub 配置，并在转换后增量扩展香港、日本组。
-    location /provider-regions/ {
-        proxy_pass http://zurl:3080;
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $gateway_proto;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_connect_timeout 60s;
-    }
-
     # ---- sub-web-modify 前端（订阅转换界面）----
     location / {
         auth_request /_gateway_auth;

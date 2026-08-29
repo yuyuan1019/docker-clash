@@ -18,11 +18,9 @@ import yaml
 from fastapi import Request, Response
 
 from app.api.provider_regions import (
-    expand_provider_region_groups,
     fix_region_name_compatibility,
     prefix_duplicate_provider_nodes,
 )
-from app.api.config_allowlist import custom_clash_request_error
 from app.api.subscription_headers import build_subscription_response_headers
 from app.api.url import DENY_SHORT_URLS
 from app.models.conn import get_db_session
@@ -55,10 +53,6 @@ def _resp(code: int, message: str, short_url: str = ""):
 
 
 class CompatAPI:
-    @staticmethod
-    def _provider_region_request_error(query_args: dict) -> str:
-        return custom_clash_request_error(query_args, "香港/日本提供商复写版")
-
     @staticmethod
     def _upstream_user_agent(query_args: dict, request: Request) -> str:
         # SubConverter-Extended 只认 /sub 请求的 User-Agent 头（不认 diyua 参数），
@@ -99,49 +93,6 @@ class CompatAPI:
                     provider["header"] = headers
                 headers["User-Agent"] = [provider_user_agent]
         return ""
-
-    # 可直接作为订阅地址使用：先取页面所选 GitHub 配置，再增量生成港日 provider 组。
-    async def provider_region_subscription(self, request: Request):
-        query_args = parse_qs(request.url.query)
-        error = self._provider_region_request_error(query_args)
-        if error:
-            return Response(error, status_code=400, media_type="text/plain")
-
-        try:
-            status, cfg_text, upstream_headers = await self._fetch_subconverter(
-                "/sub", request.url.query, self._upstream_user_agent(query_args, request)
-            )
-        except Exception as e:
-            return Response(
-                f"拉取转换配置失败：{e}", status_code=502, media_type="text/plain"
-            )
-        if status != 200:
-            return Response(cfg_text, status_code=status, media_type="text/plain")
-
-        try:
-            config = yaml.safe_load(cfg_text)
-        except Exception:
-            config = None
-        if not isinstance(config, dict):
-            return Response(
-                "转换结果不是有效的 Mihomo YAML 配置",
-                status_code=502,
-                media_type="text/plain",
-            )
-
-        expand_provider_region_groups(config)
-        error = self._apply_provider_user_agent(config, query_args)
-        if error:
-            return Response(error, status_code=400, media_type="text/plain")
-
-        response_headers = build_subscription_response_headers(
-            upstream_headers, query_args
-        )
-        return Response(
-            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
-            media_type="text/yaml",
-            headers=response_headers,
-        )
 
     # 普通订阅转换兼容层：保留请求参数，只修正遗漏的英文城市地区归属。
     async def subscription_compat(self, request: Request):
@@ -267,21 +218,14 @@ class CompatAPI:
 
         # 2. 校验是本站后端生成的 clash 链接，并映射为容器内网地址
         parsed = urlparse(sub_url)
-        apply_provider_regions = parsed.path.startswith("/provider-regions/")
         if parsed.path.startswith("/subapi/"):
             internal_path = parsed.path[len("/subapi"):]
-        elif apply_provider_regions:
-            internal_path = parsed.path[len("/provider-regions"):]
         else:
             return _resp(0, "仅支持本站后端生成的订阅链接")
         query_args = parse_qs(parsed.query)
         target = query_args.get("target", [""])[0]
         if target != "clash":
             return _resp(0, "仅支持生成类型为 Clash 的订阅链接")
-        if apply_provider_regions:
-            error = self._provider_region_request_error(query_args)
-            if error:
-                return _resp(0, error)
 
         # 3. 从内网拉取转换后的完整 mihomo 配置（转换可能拉取远程规则，耗时较长）
         try:
@@ -300,10 +244,7 @@ class CompatAPI:
         if not isinstance(new_cfg, dict):
             return _resp(0, "转换结果不是有效的 mihomo 配置")
 
-        if apply_provider_regions:
-            expand_provider_region_groups(new_cfg)
-        else:
-            prefix_duplicate_provider_nodes(new_cfg)
+        prefix_duplicate_provider_nodes(new_cfg)
 
         # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}

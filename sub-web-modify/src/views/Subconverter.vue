@@ -25,7 +25,7 @@
                   </el-col>
                 </el-row>
                 <el-button icon="el-icon-plus" size="small" style="width:100%" @click="addSubLink">添加订阅链接</el-button>
-                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider 和地区组后缀；同源多账号请填写唯一名称，节点会自动增加来源前缀</div>
+                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider 命名；同源多账号请填写唯一名称，节点会自动增加来源前缀</div>
               </el-form-item>
               <el-form-item label="生成类型:">
                 <el-select v-model="form.clientType" style="width: 100%">
@@ -430,85 +430,53 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 // 部署后 nginx 将 /subapi/ 反代到 SubConverter 后端，/short 反代到 zurl 短链 API
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
-const localProviderRegionBackend = siteOrigin + '/provider-regions'
 const localShort = siteOrigin + '/short'
 const customClashConfigBase = 'https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/'
 const customClashUrl = name => customClashConfigBase + name
-const providerRegionConfigPrefix = 'provider-regions:'
-const builtInConfigModes = [
-  {
-    prefix: providerRegionConfigPrefix,
-    backend: localProviderRegionBackend,
-    clashOnlyMessage: '香港/日本提供商复写版仅支持 Clash 生成类型'
-  }
-]
-
-function resolveBuiltInConfigMode(remoteConfig) {
-  return builtInConfigModes.find(mode => remoteConfig.startsWith(mode.prefix))
-}
-
-function stripBuiltInConfigPrefix(remoteConfig) {
-  const mode = resolveBuiltInConfigMode(remoteConfig)
-  return mode ? remoteConfig.slice(mode.prefix.length) : remoteConfig
-}
 const customClashVariants = [
   {
     file: 'Custom_Clash.ini',
-    label: 'Custom_Clash（默认推荐）',
-    providerLabel: 'Custom_Clash（香港/日本按提供商细分）'
+    label: 'Custom_Clash（默认推荐）'
   },
   {
     file: 'Custom_Clash_Full.ini',
-    label: 'Custom_Clash_Full（GitHub 原版）',
-    providerLabel: 'Custom_Clash_Full（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Full（GitHub 原版）'
   },
   {
     file: 'Custom_Clash_Lite.ini',
-    label: 'Custom_Clash_Lite（精简）',
-    providerLabel: 'Custom_Clash_Lite（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Lite（精简）'
   },
   {
     file: 'Custom_Clash_GFW.ini',
-    label: 'Custom_Clash_GFW（仅GFW名单）',
-    providerLabel: 'Custom_Clash_GFW（香港/日本按提供商细分）'
+    label: 'Custom_Clash_GFW（仅GFW名单）'
   },
   {
     file: 'Custom_Clash_Mainland.ini',
-    label: 'Custom_Clash_Mainland（回国）',
-    providerLabel: 'Custom_Clash_Mainland（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Mainland（回国）'
   },
   {
     file: 'Custom_Clash_Fallback.ini',
-    label: 'Custom_Clash_Fallback（故障转移）',
-    providerLabel: 'Custom_Clash_Fallback（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Fallback（故障转移）'
   },
   {
     file: 'Custom_Clash_Full_Fallback.ini',
-    label: 'Custom_Clash_Full_Fallback（全规则+故障转移）',
-    providerLabel: 'Custom_Clash_Full_Fallback（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Full_Fallback（全规则+故障转移）'
   },
   {
     file: 'Custom_Clash_Lite_Fallback.ini',
-    label: 'Custom_Clash_Lite_Fallback（精简+故障转移）',
-    providerLabel: 'Custom_Clash_Lite_Fallback（香港/日本按提供商细分）'
+    label: 'Custom_Clash_Lite_Fallback（精简+故障转移）'
   },
   {
     file: 'Custom_Clash_GFW_Fallback.ini',
-    label: 'Custom_Clash_GFW_Fallback（GFW+故障转移）',
-    providerLabel: 'Custom_Clash_GFW_Fallback（香港/日本按提供商细分）'
+    label: 'Custom_Clash_GFW_Fallback（GFW+故障转移）'
   }
 ]
 
 function buildCustomClashOptions() {
   return customClashVariants.reduce((options, variant) => {
-    const configUrl = customClashUrl(variant.file)
     options.push({
       label: variant.label,
-      value: configUrl
-    })
-    options.push({
-      label: variant.providerLabel,
-      value: providerRegionConfigPrefix + configUrl
+      value: customClashUrl(variant.file)
     })
     return options
   }, [])
@@ -910,15 +878,6 @@ export default {
               ? localBackend
               : this.form.customBackend;
       let remoteConfig = this.form.remoteConfig;
-      const builtInMode = resolveBuiltInConfigMode(remoteConfig);
-      if (builtInMode) {
-        if (this.form.clientType !== "clash") {
-          this.$message.error(builtInMode.clashOnlyMessage);
-          return false;
-        }
-        backend = builtInMode.backend;
-        remoteConfig = remoteConfig.slice(builtInMode.prefix.length);
-      }
       let sourceSub = this.sourceSubUrl;
       this.customSubUrl =
           backend +
@@ -1188,8 +1147,7 @@ export default {
           return;
         }
         const parsedBackend = url.origin + url.pathname.replace(/\/sub$/, "");
-        const builtInMode = builtInConfigModes.find(mode => mode.backend === parsedBackend);
-        this.form.customBackend = builtInMode ? localBackend : parsedBackend;
+        this.form.customBackend = parsedBackend;
         let param = new URLSearchParams(url.search);
         if (param.get("target")) {
           let target = param.get("target");
@@ -1288,7 +1246,7 @@ export default {
     },
     renderPost() {
       let data = new FormData();
-      const remoteConfig = stripBuiltInConfigPrefix(this.form.remoteConfig);
+      const remoteConfig = this.form.remoteConfig;
       data.append("target", encodeURIComponent(this.form.clientType));
       data.append("url", encodeURIComponent(this.sourceSubUrl));
       data.append("config", encodeURIComponent(remoteConfig));
