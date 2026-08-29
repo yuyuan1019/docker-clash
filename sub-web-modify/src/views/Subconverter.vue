@@ -431,31 +431,15 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localProviderRegionBackend = siteOrigin + '/provider-regions'
-// Smart 专版已从「远程配置」下拉移除；保留此后端地址与 smart: 前缀解析，
-// 兼容生产上已保存的表单值（data/zurl/web-form-config.json）和历史短链。
-const localSmartBackend = siteOrigin + '/smart'
-const localSmartProviderRegionBackend = siteOrigin + '/smart-provider-regions'
 const localShort = siteOrigin + '/short'
 const customClashConfigBase = 'https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/'
 const customClashUrl = name => customClashConfigBase + name
 const providerRegionConfigPrefix = 'provider-regions:'
-const smartConfigPrefix = 'smart:'
-const smartProviderRegionConfigPrefix = 'smart-provider-regions:'
 const builtInConfigModes = [
-  {
-    prefix: smartProviderRegionConfigPrefix,
-    backend: localSmartProviderRegionBackend,
-    clashOnlyMessage: 'Smart 香港/日本提供商版仅支持 Clash 生成类型'
-  },
   {
     prefix: providerRegionConfigPrefix,
     backend: localProviderRegionBackend,
     clashOnlyMessage: '香港/日本提供商复写版仅支持 Clash 生成类型'
-  },
-  {
-    prefix: smartConfigPrefix,
-    backend: localSmartBackend,
-    clashOnlyMessage: 'Smart 专版仅支持 Clash 生成类型'
   }
 ]
 

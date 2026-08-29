@@ -22,11 +22,7 @@ from app.api.provider_regions import (
     fix_region_name_compatibility,
     prefix_duplicate_provider_nodes,
 )
-from app.api.smart_groups import (
-    convert_smart_groups,
-    custom_clash_request_error,
-    smart_request_error,
-)
+from app.api.config_allowlist import custom_clash_request_error
 from app.api.subscription_headers import build_subscription_response_headers
 from app.api.url import DENY_SHORT_URLS
 from app.models.conn import get_db_session
@@ -138,70 +134,6 @@ class CompatAPI:
         if error:
             return Response(error, status_code=400, media_type="text/plain")
 
-        response_headers = build_subscription_response_headers(
-            upstream_headers, query_args
-        )
-        return Response(
-            yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
-            media_type="text/yaml",
-            headers=response_headers,
-        )
-
-    # Smart 专版订阅：始终先由 SubConverter 拉取 GitHub 最新远程配置，
-    # 再把自动选择组增量复写为 Smart；不保存上游配置副本。
-    async def smart_subscription(
-        self, request: Request, provider_regions: bool = False
-    ):
-        query_args = parse_qs(request.url.query)
-        error = smart_request_error(query_args)
-        if not error and provider_regions:
-            error = self._provider_region_request_error(query_args)
-        if error:
-            return Response(error, status_code=400, media_type="text/plain")
-
-        try:
-            status, cfg_text, upstream_headers = await self._fetch_subconverter(
-                "/sub", request.url.query, self._upstream_user_agent(query_args, request)
-            )
-        except Exception as e:
-            return Response(
-                f"拉取转换配置失败：{e}", status_code=502, media_type="text/plain"
-            )
-        if status != 200:
-            return Response(cfg_text, status_code=status, media_type="text/plain")
-
-        try:
-            config = yaml.safe_load(cfg_text)
-        except Exception:
-            config = None
-        if not isinstance(config, dict):
-            return Response(
-                "转换结果不是有效的 Mihomo YAML 配置",
-                status_code=502,
-                media_type="text/plain",
-            )
-
-        fix_region_name_compatibility(config)
-        prefix_duplicate_provider_nodes(config)
-        if provider_regions:
-            expand_provider_region_groups(config)
-        converted = convert_smart_groups(config)
-        groups = config.get("proxy-groups")
-        if not isinstance(groups, list):
-            groups = config.get("Proxy Group", [])
-        if converted == 0 and not any(
-            isinstance(group, dict) and group.get("type") == "smart"
-            for group in groups
-        ):
-            return Response(
-                "GitHub 上游配置中没有可转换的自动策略组",
-                status_code=502,
-                media_type="text/plain",
-            )
-
-        error = self._apply_provider_user_agent(config, query_args)
-        if error:
-            return Response(error, status_code=400, media_type="text/plain")
         response_headers = build_subscription_response_headers(
             upstream_headers, query_args
         )
@@ -335,12 +267,6 @@ class CompatAPI:
 
         # 2. 校验是本站后端生成的 clash 链接，并映射为容器内网地址
         parsed = urlparse(sub_url)
-        if parsed.path.startswith(("/smart/", "/smart-provider-regions/")):
-            return _resp(
-                0,
-                "Smart 专版仅供外部 OpenClash Smart 内核订阅，"
-                "本站容器使用官方 Mihomo，不能切换为该配置",
-            )
         apply_provider_regions = parsed.path.startswith("/provider-regions/")
         if parsed.path.startswith("/subapi/"):
             internal_path = parsed.path[len("/subapi"):]
