@@ -3,13 +3,7 @@
     <el-row class="sub-main-row">
       <el-col :xs="24" :sm="22" :md="22" :lg="20" :xl="16" class="sub-main-col">
         <el-card class="sub-card" shadow="hover">
-          <div slot="header">
-            <el-tag size="small" :type="mihomoStatusTag.type" style="float:left;cursor:pointer" @click="getMihomoStatus">
-              <i class="el-icon-cpu"></i> {{ mihomoStatusTag.text }}
-            </el-tag>
-            <el-link type="primary" icon="el-icon-connection" style="float:right" :href="xdPanelUrl" target="_blank" rel="noopener noreferrer">打开面板</el-link>
-            <div style="text-align:center;font-size:15px">订 阅 转 换</div>
-          </div>
+          <div slot="header" style="text-align:center;font-size:15px">订 阅 转 换</div>
           <el-container>
             <el-form class="sub-form" :model="form" label-width="88px" label-position="left">
               <el-form-item label="订阅链接:">
@@ -77,6 +71,10 @@
                   </el-option-group>
                 </el-select>
               </el-form-item>
+              <el-form-item label="订阅命名:">
+                <el-input v-model="form.filename" @input="onFilenameInput"
+                          placeholder="留空自动填写：单订阅=提供商名，多订阅=合集；修改提供商名称会自动同步"/>
+              </el-form-item>
               <el-form-item class="advanced-section" label-width="0px">
                 <el-collapse>
                   <el-collapse-item>
@@ -101,10 +99,6 @@
                     </el-form-item>
                     <el-form-item label="更新间隔:">
                       <el-input v-model="form.interval" placeholder="订阅自动更新间隔，单位为天，默认 7 天"/>
-                    </el-form-item>
-                    <el-form-item label="订阅命名:">
-                      <el-input v-model="form.filename" @input="onFilenameInput"
-                                placeholder="留空自动填写：单订阅=提供商名，多订阅=合集"/>
                     </el-form-item>
                     <el-form-item class="eldiy" label-width="0px">
                       <el-row type="flex">
@@ -217,43 +211,60 @@
               </el-form-item>
               <el-form-item class="action-group action-group-primary" label-width="0px">
                 <el-button
-                    style="width: 120px"
                     type="danger"
                     class="action-btn"
+                    icon="el-icon-link"
                     @click="makeUrl"
                     :disabled="sourceSubUrl.length === 0 || btnBoolean"
                 >生成订阅链接
                 </el-button>
                 <el-button
-                    style="width: 120px"
                     type="danger"
                     class="action-btn"
+                    icon="el-icon-share"
                     @click="makeShortUrl"
                     :loading="loading1"
                     :disabled="customSubUrl.length === 0"
                 >生成短链接
                 </el-button>
                 <el-button
-                    style="width: 140px"
-                    type="warning"
+                    type="primary"
                     class="action-btn"
-                    icon="el-icon-cpu"
-                    @click="generateLatestConfig"
-                    :loading="applying"
-                    :disabled="customSubUrl.length === 0"
-                >生成最新配置
+                    icon="el-icon-copy-document"
+                    @click="dialogLoadConfigVisible = true"
+                    :loading="loading3"
+                >从URL解析
                 </el-button>
                 <el-button
-                    style="width: 150px"
                     type="success"
                     class="action-btn"
+                    icon="el-icon-download"
+                    @click="importToClash"
+                    :disabled="!canImportClash"
+                >一键导入 Clash
+                </el-button>
+              </el-form-item>
+              <el-form-item class="action-group action-group-secondary" label-width="0px">
+                <el-button
+                    type="warning"
+                    class="action-btn"
                     icon="el-icon-refresh"
-                    @click="activateLatestConfig"
-                    :loading="switchingConfig"
-                >切换当前配置
+                    @click="updateAndApplyConfig"
+                    :loading="applying"
+                    :disabled="customSubUrl.length === 0"
+                >更新并应用配置
                 </el-button>
                 <el-button
-                    style="width: 140px"
+                    v-if="mihomoStatus !== true"
+                    type="success"
+                    class="action-btn"
+                    icon="el-icon-video-play"
+                    @click="controlMihomo('start')"
+                    :loading="controlling"
+                >开启 mihomo
+                </el-button>
+                <el-button
+                    v-else
                     type="info"
                     class="action-btn"
                     icon="el-icon-switch-button"
@@ -261,130 +272,23 @@
                     :loading="controlling"
                 >关闭 mihomo
                 </el-button>
-              </el-form-item>
-              <el-form-item class="action-group action-group-secondary" label-width="0px">
                 <el-button
-                    style="width: 120px"
                     type="primary"
+                    plain
                     class="action-btn"
-                    @click="dialogUploadConfigVisible = true"
-                    icon="el-icon-upload"
-                    :loading="loading2"
-                >自定义配置
+                    icon="el-icon-connection"
+                    @click="openPanel"
+                >打开面板
                 </el-button>
-                <el-button
-                    style="width: 120px"
-                    type="primary"
-                    class="action-btn"
-                    @click="dialogLoadConfigVisible = true"
-                    icon="el-icon-copy-document"
-                    :loading="loading3"
-                >从URL解析
-                </el-button>
-              </el-form-item>
-              <el-form-item class="action-group action-group-import" label-width="0px">
-                <el-button
-                    style="width: 250px;"
-                    type="success"
-                    class="action-btn-wide"
-                    icon="el-icon-download"
-                    @click="importToClash"
-                    :disabled="!canImportClash"
-                >一键导入 Clash
-                </el-button>
+                <el-tag :type="mihomoStatusTag.type" class="action-btn status-chip" @click="getMihomoStatus">
+                  {{ mihomoStatusTag.text }}
+                </el-tag>
               </el-form-item>
             </el-form>
           </el-container>
         </el-card>
       </el-col>
     </el-row>
-    <el-dialog
-        :visible.sync="dialogUploadConfigVisible"
-        :show-close="false"
-        :close-on-click-modal="false"
-        :close-on-press-escape="false"
-        :width="isPC ? '80%' : '96%'"
-    >
-      <el-tabs v-model="activeName" type="card">
-        <el-tab-pane label="远程配置上传" name="first">
-          <el-link type="danger" :href="sampleConfig" style="margin-bottom: 15px" target="_blank" icon="el-icon-info">
-            参考案例
-          </el-link>
-          <el-form label-position="left">
-            <el-form-item prop="uploadConfig">
-              <el-input
-                  v-model="uploadConfig"
-                  type="textarea"
-                  :autosize="{ minRows: 15, maxRows: 15}"
-                  maxlength="50000"
-                  show-word-limit
-              ></el-input>
-            </el-form-item>
-          </el-form>
-          <div style="float: right">
-            <el-button type="primary" @click="uploadConfig = ''; dialogUploadConfigVisible = false">取 消</el-button>
-            <el-button
-                type="primary"
-                @click="confirmUploadConfig"
-                :disabled="uploadConfig.length === 0"
-            >确 定
-            </el-button>
-          </div>
-        </el-tab-pane>
-        <el-tab-pane label="JS排序节点" name="second">
-          <el-link type="success" :href="scriptConfig" style="margin-bottom: 15px" target="_blank" icon="el-icon-info">
-            参考案例
-          </el-link>
-          <el-form label-position="left">
-            <el-form-item prop="uploadScript">
-              <el-input
-                  v-model="uploadScript"
-                  placeholder="本功能暂停使用，如有兴趣，自行去我的GitHub参考sub-web-api项目部署！"
-                  type="textarea"
-                  :autosize="{ minRows: 15, maxRows: 15}"
-                  maxlength="50000"
-                  show-word-limit
-              ></el-input>
-            </el-form-item>
-          </el-form>
-          <div style="float: right">
-            <el-button type="primary" @click="uploadScript = ''; dialogUploadConfigVisible = false">取 消</el-button>
-            <el-button
-                type="primary"
-                @click="confirmUploadScript"
-                :disabled="uploadScript.length === 0"
-            >确 定
-            </el-button>
-          </div>
-        </el-tab-pane>
-        <el-tab-pane label="JS筛选节点" name="third">
-          <el-link type="warning" :href="filterConfig" style="margin-bottom: 15px" target="_blank" icon="el-icon-info">
-            参考案例
-          </el-link>
-          <el-form label-position="left">
-            <el-form-item prop="uploadFilter">
-              <el-input
-                  v-model="uploadFilter"
-                  placeholder="本功能暂停使用，如有兴趣，自行去我的GitHub参考sub-web-api项目部署！"
-                  type="textarea"
-                  :autosize="{ minRows: 15, maxRows: 15}"
-                  maxlength="50000"
-                  show-word-limit
-              ></el-input>
-            </el-form-item>
-          </el-form>
-          <div style="float: right">
-            <el-button type="primary" @click="uploadFilter = ''; dialogUploadConfigVisible = false">取 消</el-button>
-            <el-button
-                type="primary"
-                @click="confirmUploadScript"
-                :disabled="uploadFilter.length === 0"
-            >确 定
-            </el-button>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
-    </el-dialog>
     <el-dialog
         :visible.sync="dialogLoadConfigVisible"
         :show-close="false"
@@ -396,7 +300,7 @@
         可以从生成的长/短链接中解析信息,填入页面中去
       </div>
       <el-form label-position="left">
-        <el-form-item prop="uploadConfig">
+        <el-form-item prop="loadConfig">
           <el-input
               v-model="loadConfig"
               type="textarea"
@@ -420,10 +324,6 @@
 </template>
 <script>
 const project = process.env.VUE_APP_PROJECT
-const configScriptBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/api.php'
-const remoteConfigSample = process.env.VUE_APP_SUBCONVERTER_REMOTE_CONFIG
-const scriptConfigSample = process.env.VUE_APP_SCRIPT_CONFIG
-const filterConfigSample = process.env.VUE_APP_FILTER_CONFIG
 const defaultBackend = process.env.VUE_APP_SUBCONVERTER_DEFAULT_BACKEND
 const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 // ===== 本站动态地址（根据当前访问域名自动生成，不写死 127.0.0.1 或固定域名）=====
@@ -481,7 +381,6 @@ function buildCustomClashOptions() {
     return options
   }, [])
 }
-const configUploadBackend = process.env.VUE_APP_CONFIG_UPLOAD_BACKEND + '/sub.php'
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
 const bzlink = process.env.VUE_APP_BILIBILI_LINK
@@ -489,7 +388,6 @@ export default {
   data() {
     return {
       backendVersion: "",
-      activeName: 'first',
       // 是否为 PC 端
       isPC: true,
       btnBoolean: false,
@@ -574,8 +472,6 @@ export default {
       loading1: false,
       // 生成最新候选配置按钮加载状态
       applying: false,
-      // 将最新候选配置切换为当前 config.yaml 的按钮状态
-      switchingConfig: false,
       // 关闭/启动 mihomo 按钮加载状态
       controlling: false,
       // mihomo 运行状态：true=运行中 false=已停止 null=未知
@@ -585,22 +481,14 @@ export default {
       filenameAuto: true,
       formPersistenceReady: false,
       formSaveTimer: null,
-      loading2: false,
       loading3: false,
       customSubUrl: "",
       customShortSubUrl: "",
       // 记录短链对应的长链，避免修改配置后误导入旧短链。
       shortUrlSource: "",
-      dialogUploadConfigVisible: false,
       loadConfig: "",
       dialogLoadConfigVisible: false,
-      uploadFilter: "",
-      uploadScript: "",
-      uploadConfig: "",
       myBot: tgBotLink,
-      filterConfig: filterConfigSample,
-      scriptConfig: scriptConfigSample,
-      sampleConfig: remoteConfigSample,
       // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
       xdPanelUrl: window.location.origin + "/xd/"
     };
@@ -636,17 +524,20 @@ export default {
         this.queueServerFormSave();
       }
     },
-    // 订阅链接行变化时自动推导订阅命名：单订阅=提供商名，两条及以上=合集
+    // 订阅链接行变化时自动推导订阅命名：单订阅=提供商名，两条及以上=合集；
+    // 提供商名称被手动修改时，恢复自动命名并立即同步一次
     "form.subLinks": {
       deep: true,
-      handler() {
-        this.autoFilename();
+      handler(rows) {
+        this.onSubLinksChange(rows);
       }
     }
   },
   created() {
     document.title = "在线订阅转换工具";
     this.isPC = this.$getOS().isPc;
+    // 非响应式快照：记录最近一次提供商名称，用于识别“名称被手动修改”
+    this.subNameSnapshot = this.form.subLinks.map(r => (r.name || "").trim());
   },
   beforeDestroy() {
     if (this.statusTimer) {
@@ -693,6 +584,7 @@ export default {
                 url: typeof row.url === "string" ? row.url : ""
               }));
           this.form.subLinks = rows.length ? rows : [{ name: "", url: "" }];
+          this.syncNameSnapshot();
           return;
         }
         if (key === "tpl") {
@@ -774,6 +666,20 @@ export default {
         return { name, url: link };
       }).filter(r => r.url !== "");
       this.form.subLinks = rows.length > 0 ? rows : [{ name: "", url: "" }];
+      this.syncNameSnapshot();
+    },
+    syncNameSnapshot() {
+      this.subNameSnapshot = this.form.subLinks.map(r => (r.name || "").trim());
+    },
+    onSubLinksChange(rows) {
+      const names = rows.map(r => (r.name || "").trim());
+      const snapshot = this.subNameSnapshot || [];
+      // 行数不变且名称变化 → 用户修改了提供商名称：恢复自动命名并同步一次
+      if (snapshot.length === names.length && names.some((n, i) => n !== snapshot[i])) {
+        this.filenameAuto = true;
+      }
+      this.subNameSnapshot = names;
+      this.autoFilename();
     },
     autoFilename() {
       if (!this.filenameAuto) return;
@@ -842,6 +748,9 @@ export default {
     },
     onCopy() {
       this.$message.success("已复制");
+    },
+    openPanel() {
+      window.open(this.xdPanelUrl, "_blank", "noopener");
     },
     goToProject() {
       window.open(project);
@@ -1001,44 +910,34 @@ export default {
             this.loading1 = false;
           });
     },
-    generateLatestConfig() {
+    // 一键完成：先生成候选 latest.yaml，成功后自动切换为当前配置并重启/启动 mihomo
+    async updateAndApplyConfig() {
+      if (this.customSubUrl.length === 0) {
+        this.$message.error("请先生成订阅链接");
+        return;
+      }
       this.applying = true;
-      let data = new FormData();
-      data.append("subUrl", this.customSubUrl);
-      this.$axios
-          .post("/apply", data, { timeout: 200000 })
-          .then(res => {
-            if (res.data.Code === 1) {
-              this.$message.success(res.data.Message);
-            } else {
-              this.$message.error("生成失败：" + res.data.Message);
-            }
-          })
-          .catch(() => {
-            this.$message.error("生成请求失败，请检查网络或稍后再试");
-          })
-          .finally(() => {
-            this.applying = false;
-          });
-    },
-    activateLatestConfig() {
-      this.switchingConfig = true;
-      this.$axios
-          .post("/mihomo/latest-config", null, { timeout: 60000 })
-          .then(res => {
-            if (res.data.Code === 1) {
-              this.$message.success(res.data.Message);
-            } else {
-              this.$message.error("切换失败：" + res.data.Message);
-            }
-            this.getMihomoStatus();
-          })
-          .catch(() => {
-            this.$message.error("切换请求失败，请检查 mihomo 状态或稍后再试");
-          })
-          .finally(() => {
-            this.switchingConfig = false;
-          });
+      try {
+        let data = new FormData();
+        data.append("subUrl", this.customSubUrl);
+        let res = await this.$axios.post("/apply", data, { timeout: 200000 });
+        if (res.data.Code !== 1) {
+          this.$message.error("生成最新配置失败：" + res.data.Message);
+          return;
+        }
+        this.$message.success("最新配置已生成，正在切换为当前配置…");
+        res = await this.$axios.post("/mihomo/latest-config", null, { timeout: 60000 });
+        if (res.data.Code === 1) {
+          this.$message.success(res.data.Message);
+        } else {
+          this.$message.error("切换失败：" + res.data.Message);
+        }
+      } catch (e) {
+        this.$message.error("请求失败，请检查网络或稍后再试");
+      } finally {
+        this.applying = false;
+        this.getMihomoStatus();
+      }
     },
     getMihomoStatus() {
       this.$axios
@@ -1083,35 +982,6 @@ export default {
       } else {
         doPost();
       }
-    },
-    confirmUploadConfig() {
-      this.loading2 = true;
-      let data = new FormData();
-      data.append("config", encodeURIComponent(this.uploadConfig));
-      this.$axios
-          .post(configUploadBackend, data, {
-            header: {
-              "Content-Type": "application/form-data; charset=utf-8"
-            }
-          })
-          .then(res => {
-            if (res.data.code === 0 && res.data.data !== "") {
-              this.$message.success(
-                  "远程配置上传成功，配置链接已复制到剪贴板"
-              );
-              this.form.remoteConfig = res.data.data;
-              this.$copyText(this.form.remoteConfig);
-              this.dialogUploadConfigVisible = false;
-            } else {
-              this.$message.error("远程配置上传失败: " + res.data.msg);
-            }
-          })
-          .catch(() => {
-            this.$message.error("远程配置上传失败");
-          })
-          .finally(() => {
-            this.loading2 = false;
-          });
     },
     analyzeUrl() {
       if (this.loadConfig.indexOf("target") !== -1) {
@@ -1169,9 +1039,7 @@ export default {
           this.form.insert = param.get("insert") === 'true';
         }
         if (param.get("config")) {
-          this.form.remoteConfig = builtInMode
-              ? builtInMode.prefix + param.get("config")
-              : param.get("config");
+          this.form.remoteConfig = param.get("config");
         }
         if (param.get("exclude")) {
           this.form.excludeRemarks = param.get("exclude");
@@ -1182,6 +1050,10 @@ export default {
         if (param.get("filename")) {
           this.form.filename = param.get("filename");
           this.filenameAuto = false;
+        } else {
+          // 链接未携带命名时恢复自动命名，跟随提供商名称同步
+          this.filenameAuto = true;
+          this.autoFilename();
         }
         if (param.get("rename")) {
           this.form.rename = param.get("rename");
@@ -1243,65 +1115,6 @@ export default {
         this.dialogLoadConfigVisible = false;
         this.$message.success("长/短链接已成功解析为订阅信息");
       })();
-    },
-    renderPost() {
-      let data = new FormData();
-      const remoteConfig = this.form.remoteConfig;
-      data.append("target", encodeURIComponent(this.form.clientType));
-      data.append("url", encodeURIComponent(this.sourceSubUrl));
-      data.append("config", encodeURIComponent(remoteConfig));
-      data.append("exclude", encodeURIComponent(this.form.excludeRemarks));
-      data.append("include", encodeURIComponent(this.form.includeRemarks));
-      data.append("rename", encodeURIComponent(this.form.rename));
-      data.append("tls13", encodeURIComponent(this.form.tls13.toString()));
-      data.append("xudp", encodeURIComponent(this.form.xudp.toString()));
-      data.append("emoji", encodeURIComponent(this.form.emoji.toString()));
-      data.append("list", encodeURIComponent(this.form.nodeList.toString()));
-      data.append("udp", encodeURIComponent(this.form.udp.toString()));
-      data.append("tfo", encodeURIComponent(this.form.tfo.toString()));
-      data.append("expand", encodeURIComponent(this.form.expand.toString()));
-      data.append("scv", encodeURIComponent(this.form.scv.toString()));
-      data.append("fdn", encodeURIComponent(this.form.fdn.toString()));
-      data.append("sdoh", encodeURIComponent(this.form.tpl.surge.doh.toString()));
-      data.append("cdoh", encodeURIComponent(this.form.tpl.clash.doh.toString()));
-      data.append("newname", encodeURIComponent(this.form.new_name.toString()));
-      data.append("diyua", encodeURIComponent(this.form.diyua.toString()));
-      return data;
-    },
-    confirmUploadScript() {
-      if (this.sourceSubUrl === "") {
-        this.$message.error("订阅链接不能为空");
-        return false;
-      }
-      this.loading2 = true;
-      let data = this.renderPost();
-      data.append("sortscript", encodeURIComponent(this.uploadScript));
-      data.append("filterscript", encodeURIComponent(this.uploadFilter));
-      this.$axios
-          .post(configScriptBackend, data, {
-            header: {
-              "Content-Type": "application/form-data; charset=utf-8"
-            }
-          })
-          .then(res => {
-            if (res.data.code === 0 && res.data.data !== "") {
-              this.$message.success(
-                  "自定义JS上传成功，订阅链接已复制到剪贴板（IOS设备和Safari浏览器不支持自动复制API，需手动点击复制按钮）"
-              );
-              this.customSubUrl = res.data.data;
-              this.$copyText(res.data.data);
-              this.dialogUploadConfigVisible = false;
-              this.btnBoolean = true;
-            } else {
-              this.$message.error("自定义JS上传失败: " + res.data.msg);
-            }
-          })
-          .catch(() => {
-            this.$message.error("自定义JS上传失败");
-          })
-          .finally(() => {
-            this.loading2 = false;
-          })
     },
     getBackendVersion() {
       this.$axios
@@ -1397,8 +1210,21 @@ export default {
 .action-group-secondary {
   margin-top: 4px;
 }
-.action-group-import {
-  margin-top: 6px;
+/* 两行操作按钮统一尺寸 */
+.action-btn {
+  width: 170px;
+}
+/* mihomo 运行状态标签：与按钮同高同宽 */
+.status-chip {
+  height: 40px;
+  line-height: 1;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  box-sizing: border-box;
 }
 
 /* 移动端适配 */
@@ -1435,13 +1261,9 @@ export default {
   .sub-link-del {
     margin-top: 2px;
   }
-  /* 底部操作按钮两行排列、加大触控区域 */
+  /* 底部操作按钮移动端两列排布、加大触控区域（状态标签同步适配） */
   .action-btn {
     width: 46% !important;
-    margin: 4px 2% !important;
-  }
-  .action-btn-wide {
-    width: 96% !important;
     margin: 4px 2% !important;
   }
   /* 结果链接字号缩小防止撑破 */

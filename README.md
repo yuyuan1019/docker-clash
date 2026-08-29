@@ -13,14 +13,15 @@
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
    远程配置只保留 Custom_OpenClash_Rules 系列（jsDelivr CDN 地址，即 GitHub 仓库 `cfg` 目录的镜像分发）；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
-5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
+5. 「订阅命名」紧跟「远程配置」之后默认展示：留空自动填（单订阅=提供商名，多订阅=`合集`）；
+   手动修改提供商名称时会自动同步一次命名（手动改过命名后，再次修改提供商名称即可重新同步）。「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
    “订阅命名”通过订阅响应的 `Content-Disposition` 传给 Clash Verge，长链和短链导入均会使用该名称
-7. 主页「生成最新配置」只写入候选 `latest.yaml`；只有点击「切换当前配置」才替换 `config.yaml` 并重启 mihomo（已关闭时则启动）
-8. 点卡片头右侧「打开面板」（或访问 `/xd/`）进入 metacubexd：
+7. 主页「更新并应用配置」一键完成两步：先据当前订阅生成候选 `latest.yaml`，成功后自动将其切换为 `config.yaml` 并重启 mihomo（已关闭时则启动）
+8. 点「打开面板」（或访问 `/xd/`）进入 metacubexd：
    - 面板使用官方预构建镜像。首次使用时，后端地址填写 `当前访问地址/clash`，密钥填写 `.env` 的 `MIHOMO_SECRET`；连接信息会保存在浏览器中
-9. 不用代理时点「关闭 mihomo」即可停止内核；状态看卡片头左上角标签（绿=运行中）
+9. mihomo 控制按钮按状态切换：运行中显示「关闭 mihomo」（需确认），已停止显示「开启 mihomo」（直接启动）；状态看第二行操作区的状态标签（绿=运行中），每 30 秒自动刷新，点击可手动刷新
 
 页面会把订阅地址、提供商名称、远程配置和高级选项自动保存到服务器的 `data/zurl/web-form-config.json`，使用其他电脑登录同一站点时也会恢复同一份配置；生成后的长链、短链不会保存。该站点共用一份配置，多台设备修改时以最后一次保存为准。此文件包含原始订阅地址，应与 `.env` 一样妥善保护，不要提交到 Git 或公开分享。
 
@@ -106,7 +107,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   首次连接时填写 `当前访问源/clash` 和 `MIHOMO_SECRET`。也可在 `.env` 的 `DEFAULT_BACKEND_URL` 中预填完整后端地址。
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
-- 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
+- 「更新并应用配置」按钮一键串联两步：先拉取转换结果写入候选 `config/mihomo/latest.yaml`（不影响当前运行配置），
+  再把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；容器已关闭时则启动，启动失败会回滚原配置。
 - 所有 `/subapi/sub` Clash 转换都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
 - 转换结果会自动追加自定义选择组，默认只有「🏷️ CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
@@ -123,14 +125,12 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   非标端口→全球直连；同样支持 transform.yaml 热加载。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
-- 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；
-  容器已关闭时则启动，启动失败会回滚原配置。
+- mihomo 控制按钮经 Docker socket（`/var/run/docker.sock`）启停容器：运行中显示「关闭 mihomo」（需确认），
+  已停止显示「开启 mihomo」直接启动并恢复代理服务。
+- 操作区第二行有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 「打开面板」使用浏览器原生新标签页进入同源 `/xd/` 官方面板；连接地址和密钥由用户在官方面板中填写并保存。
 - 设置 `WEB_AUTH_ENABLED=true` 后，公网入口直接使用同一个 `MIHOMO_SECRET` 登录；保持 `false` 时适合可信内网免登录使用。
 - 认证 Cookie 为 HttpOnly、默认长期有效（10 年）；修改 `MIHOMO_SECRET` 可使所有旧登录失效。`/subapi/` 转换结果和 `/s/` 短链接不受登录开关影响。
-- 「关闭 mihomo」按钮：经 Docker socket（`/var/run/docker.sock`）停止 mihomo 容器，
-  代理服务即停止；再用「切换当前配置」可启动并恢复。
-- 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
   （前端默认选中 jsDelivr CDN 地址，内容来自 GitHub 仓库 `cfg` 目录；后端 `default_external_config` 默认也是它）。
 
@@ -175,6 +175,9 @@ http://服务器IP:7788/xd/    metacubexd 官方面板
   - 默认远程配置改为 Custom_OpenClash_Rules（jsDelivr CDN 地址）
   - `makeUrl`/`makeShortUrl` 兜底地址改为本站动态地址
   - `getBackendVersion` 提示语通用化；`download.html` 链接改为跟随当前协议
+  - 「订阅命名」移至「远程配置」之后默认展示；提供商名称被修改时自动同步一次命名
+  - 移除「自定义配置」按钮及远程配置上传/JS 排序/JS 筛选弹窗及配套死代码
+  - 修复「从URL解析」因未定义变量 `builtInMode` 导致解析中断、弹窗不关闭、订阅命名不同步的问题
   - 「从URL解析」支持带 `/subapi` 前缀的本站链接
   - `Dockerfile` 增加 `NPM_CONFIG_REGISTRY` 构建参数；补充 `.dockerignore`
 - **zurl**
