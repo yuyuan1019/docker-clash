@@ -14,13 +14,74 @@ CDN_SPEC = {
     "name": "CDN/低倍率节点",
     "filter": r"(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)",
     "type": "select",
-    "attach_to": ("🚀 手动选择",),
+    "attach_to": (),
+    "attach_with": (
+        "🇭🇰 香港节点",
+        "🇺🇸 美国节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 新加坡节点",
+        "🇼🇸 台湾节点",
+        "🇰🇷 韩国节点",
+    ),
     "exclusive": True,
     "keep_in": ("♻️ 自动选择",),
 }
 
 
 class AppendCustomGroupsTest(unittest.TestCase):
+    def test_attach_with_inserts_after_region_anchors_in_business_groups(self):
+        config = {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点"],
+                },
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "proxies": [
+                        "🚀 手动选择",
+                        "♻️ 自动选择",
+                        "🇭🇰 香港节点",
+                        "🇺🇸 美国节点",
+                        "🎯 全球直连",
+                    ],
+                },
+                {
+                    "name": "🐟 漏网之鱼",
+                    "type": "select",
+                    "proxies": ["🚀 手动选择", "♻️ 自动选择", "🎯 全球直连"],
+                },
+            ],
+        }
+
+        self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
+
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # 手动选择与业务组：紧跟最后一个地区组插入
+        self.assertEqual(
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "CDN/低倍率节点"],
+            groups["🚀 手动选择"]["proxies"],
+        )
+        self.assertEqual(
+            [
+                "🚀 手动选择",
+                "♻️ 自动选择",
+                "🇭🇰 香港节点",
+                "🇺🇸 美国节点",
+                "CDN/低倍率节点",
+                "🎯 全球直连",
+            ],
+            groups["📹 YouTube"]["proxies"],
+        )
+        # 不含地区组的分组不受影响
+        self.assertEqual(
+            ["🚀 手动选择", "♻️ 自动选择", "🎯 全球直连"],
+            groups["🐟 漏网之鱼"]["proxies"],
+        )
+
     def test_provider_based_config_gets_filter_group(self):
         config = {
             "proxy-providers": {
@@ -31,7 +92,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 {
                     "name": "🚀 手动选择",
                     "type": "select",
-                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"],
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点"],
                 }
             ],
         }
@@ -45,7 +106,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(CDN_SPEC["filter"], group["filter"])
         self.assertNotIn("proxies", group)
         self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "CDN/低倍率节点"],
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "CDN/低倍率节点"],
             groups["🚀 手动选择"]["proxies"],
         )
 
@@ -86,7 +147,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 {
                     "name": "🚀 手动选择",
                     "type": "select",
-                    "proxies": ["♻️ 自动选择", "香港 CDN 01", "日本 0.5x 02", "美国 普通节点"],
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点", "香港 CDN 01", "日本 0.5x 02", "美国 普通节点"],
                 },
                 {
                     "name": "♻️ 自动选择",
@@ -104,9 +165,9 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        # 手动选择：CDN 节点被剔除，但保留挂载的专属组引用
+        # 手动选择：CDN 节点被剔除，专属组紧跟地区组插入
         self.assertEqual(
-            ["♻️ 自动选择", "美国 普通节点", "CDN/低倍率节点"],
+            ["♻️ 自动选择", "🇭🇰 香港节点", "CDN/低倍率节点", "美国 普通节点"],
             groups["🚀 手动选择"]["proxies"],
         )
         # 自动选择在 keep_in 豁免列表，保留全部节点
@@ -162,8 +223,12 @@ class AppendCustomGroupsTest(unittest.TestCase):
         config = {
             "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
             "proxy-groups": [
-                {"name": "🚀 手动选择", "type": "select", "proxies": []},
-                {"name": "📹 YouTube", "type": "select", "proxies": ["🚀 手动选择"]},
+                {"name": "🚀 手动选择", "type": "select", "proxies": ["🇭🇰 香港节点"]},
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "proxies": ["🚀 手动选择", "🇭🇰 香港节点"],
+                },
             ],
         }
 
@@ -171,11 +236,14 @@ class AppendCustomGroupsTest(unittest.TestCase):
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
         self.assertEqual("url-test", groups["IPLC 专线"]["type"])
+        # CDN 走锚点紧跟地区组；IPLC 走 attach_to 追加末尾
         self.assertEqual(
-            ["CDN/低倍率节点", "IPLC 专线"], groups["🚀 手动选择"]["proxies"]
+            ["🇭🇰 香港节点", "CDN/低倍率节点", "IPLC 专线"],
+            groups["🚀 手动选择"]["proxies"],
         )
         self.assertEqual(
-            ["🚀 手动选择", "IPLC 专线"], groups["📹 YouTube"]["proxies"]
+            ["🚀 手动选择", "🇭🇰 香港节点", "CDN/低倍率节点", "IPLC 专线"],
+            groups["📹 YouTube"]["proxies"],
         )
 
     def test_group_without_matching_source_is_skipped_and_not_attached(self):
@@ -198,7 +266,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
         config = {
             "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
             "proxy-groups": [
-                {"name": "🚀 手动选择", "type": "select", "proxies": ["♻️ 自动选择"]}
+                {"name": "🚀 手动选择", "type": "select", "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"]}
             ],
         }
 

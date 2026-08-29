@@ -16,12 +16,24 @@ logger = logging.getLogger("uvicorn.error")
 # 内置默认：等价于外置配置只定义这一个组。
 # filter 含义：名称带 CDN/低倍率字样，或倍率 ≤0.5x 的节点
 # （0.5x、x0.5、0.25x、0.1x、0.5倍 等；1x/2x/10.5x 不会命中）。
+# attach_with：凡是包含这些地区组的分组（手动选择、YouTube、GitHub 等业务组），
+# 都会把本组紧跟在最后一个地区组后面插入，与香港节点等同可选。
+REGION_ANCHOR_GROUPS = (
+    "🇭🇰 香港节点",
+    "🇺🇸 美国节点",
+    "🇯🇵 日本节点",
+    "🇸🇬 新加坡节点",
+    "🇼🇸 台湾节点",
+    "🇰🇷 韩国节点",
+)
+
 DEFAULT_CUSTOM_GROUPS = (
     {
         "name": "CDN/低倍率节点",
         "filter": r"(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)",
         "type": "select",
-        "attach_to": ("🚀 手动选择",),
+        "attach_to": (),
+        "attach_with": REGION_ANCHOR_GROUPS,
         "exclusive": True,
         "keep_in": ("♻️ 自动选择",),
     },
@@ -82,6 +94,12 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
         ):
             logger.warning("transform 配置组 %s 的 attach_to 不合法，已跳过", name)
             continue
+        attach_with = entry.get("attach_with", [])
+        if not isinstance(attach_with, list) or not all(
+            isinstance(item, str) for item in attach_with
+        ):
+            logger.warning("transform 配置组 %s 的 attach_with 不合法，已跳过", name)
+            continue
         exclusive = entry.get("exclusive", False)
         if not isinstance(exclusive, bool):
             logger.warning("transform 配置组 %s 的 exclusive 不是布尔值，已跳过", name)
@@ -99,6 +117,7 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
                 "filter": pattern,
                 "type": group_type,
                 "attach_to": tuple(attach_to),
+                "attach_with": tuple(attach_with),
                 "exclusive": exclusive,
                 "keep_in": tuple(keep_in),
             }

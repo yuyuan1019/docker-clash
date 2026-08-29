@@ -112,7 +112,9 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 转换结果会自动追加自定义选择组，默认只有「CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
   组定义外置在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`），修改保存后下次转换即生效，
   无需重建/重启容器。机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名；
-  同时挂到 `attach_to` 指定的组（默认「🚀 手动选择」）末尾。默认 `exclusive: true`：匹配节点会从其他
+  同时通过 `attach_with` 锚点插入：凡是包含地区组（香港/美国/日本等）的分组（手动选择、YouTube、
+  GitHub 等业务组），专属组会紧跟最后一个地区组插入，与香港节点同可选；不含地区组的分组（如漏网之鱼）不受影响。
+  默认 `exclusive: true`：匹配节点会从其他
   分组（业务组/地区组/手动选择的节点列表）剔除，只能从本组和「♻️ 自动选择」（keep_in 豁免）使用。
   无匹配时不生成该组；置空列表可完全关闭。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，

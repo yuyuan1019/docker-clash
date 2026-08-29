@@ -35,6 +35,8 @@ def append_custom_groups(config: dict, groups=None) -> int:
     groups 为 None 时从外置配置文件读取（data/zurl/transform.yaml，热加载，
     失败回退内置默认）。机场订阅是 proxy-provider 形态，节点名运行时才可知，
     因此用 filter 在 mihomo 侧筛选；静态节点则直接点名进 proxies。
+    attach_with 锚点：包含锚点组（如地区组）的分组会把本组紧跟其后插入，
+    与地区组同可选；attach_to 则是追加到指定组末尾（无锚点时的回退）。
     exclusive 条目会把匹配节点从其他组剔除（显式列表直接移除，
     provider filter 组追加 exclude-filter），仅保留在专属组与 keep_in 组。
     无 provider 且无匹配静态节点的组不会生成（也不会被 attach，避免悬空引用）；
@@ -130,10 +132,19 @@ def append_custom_groups(config: dict, groups=None) -> int:
             continue
         for spec in groups:
             name = spec["name"]
-            if (
-                name in ensured_set
-                and item.get("name") in spec["attach_to"]
-                and name not in members
-            ):
+            if name not in ensured_set or name in members:
+                continue
+            # attach_with：包含锚点组（如地区组）的分组，紧跟最后一个锚点后插入，
+            # 与香港节点学同等的可选位置；否则回退 attach_to（追加到末尾）。
+            anchors = spec.get("attach_with", ())
+            if anchors:
+                insert_at = -1
+                for index, member in enumerate(members):
+                    if isinstance(member, str) and member in anchors:
+                        insert_at = index + 1
+                if insert_at >= 0:
+                    members.insert(insert_at, name)
+                    continue
+            if item.get("name") in spec.get("attach_to", ()):
                 members.append(name)
     return len(ensured)
