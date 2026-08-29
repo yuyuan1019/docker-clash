@@ -17,7 +17,7 @@ import aiohttp
 import yaml
 from fastapi import Request, Response
 
-from app.api.custom_groups import append_cdn_low_rate_group
+from app.api.custom_groups import append_custom_groups
 from app.api.provider_regions import (
     fix_region_name_compatibility,
     prefix_duplicate_provider_nodes,
@@ -119,7 +119,7 @@ class CompatAPI:
 
         fix_region_name_compatibility(config)
         prefix_duplicate_provider_nodes(config)
-        append_cdn_low_rate_group(config)
+        append_custom_groups(config)
         # 把 diyua 写入 provider header，防止机场拦截旧 UA。
         error = self._apply_provider_user_agent(config, query_args)
         if error:
@@ -247,7 +247,7 @@ class CompatAPI:
             return _resp(0, "转换结果不是有效的 mihomo 配置")
 
         prefix_duplicate_provider_nodes(new_cfg)
-        append_cdn_low_rate_group(new_cfg)
+        append_custom_groups(new_cfg)
 
         # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}

@@ -109,8 +109,12 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
 - 所有 `/subapi/sub` Clash 转换都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
-- 转换结果会自动追加「CDN/低倍率节点」手动选择组（名称含 `CDN` 或 `低倍率` 的节点）：
-  机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名；同时挂到「🚀 手动选择」末尾。无匹配时不生成该组。
+- 转换结果会自动追加自定义选择组，默认只有「CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
+  组定义外置在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`），修改保存后下次转换即生效，
+  无需重建/重启容器。机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名；
+  同时挂到 `attach_to` 指定的组（默认「🚀 手动选择」）末尾。默认 `exclusive: true`：匹配节点会从其他
+  分组（业务组/地区组/手动选择的节点列表）剔除，只能从本组和「♻️ 自动选择」（keep_in 豁免）使用。
+  无匹配时不生成该组；置空列表可完全关闭。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；

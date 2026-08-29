@@ -1,0 +1,32 @@
+# 转换参数外置配置示例
+#
+# 使用方法：复制到 data/zurl/transform.yaml（容器内路径
+# /opt/zurl/app/data/transform.yaml，data 目录已挂载进容器）：
+#   cp config/zurl/transform.example.yaml data/zurl/transform.yaml
+#
+# 修改保存后，下一次订阅转换 / 「生成最新配置」即生效，
+# 无需重建或重启任何容器。
+#
+# 规则：
+# - 文件缺失或整份格式错误时，自动回退内置默认（仅「CDN/低倍率节点」一组）
+# - 单个条目不合法（正则无效、缺 name/filter 等）时跳过该条，其余继续生效
+# - custom_groups: [] 置空表示完全关闭自定义组
+# - 机场订阅按 filter 在 mihomo 运行时筛选节点；静态节点直接点名进组
+# - exclusive: true 表示该组匹配的节点从其他分组中剔除（业务组/地区组/
+#   手动选择等都不能再选到），只保留在本组和 keep_in 列出的组
+
+custom_groups:
+  - name: "CDN/低倍率节点"
+    # 名称带 CDN/低倍率字样，或倍率 ≤0.5x 的节点
+    # （0.5x、x0.5、0.25x、0.1x、0.5倍 等；1x/2x/10.5x 不会命中）
+    filter: "(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)"
+    type: select                 # 可选 select / url-test / fallback / load-balance
+    attach_to: ["🚀 手动选择"]    # 组名追加到这些组的 proxies 末尾
+    exclusive: true              # 匹配节点从其他组剔除
+    keep_in: ["♻️ 自动选择"]      # 豁免：这些组仍保留匹配节点
+  # 追加更多组示例：
+  # - name: "IPLC 专线"
+  #   filter: "(?i)(iplc|专线)"
+  #   type: select
+  #   attach_to: ["🚀 手动选择"]
+  #   exclusive: false
