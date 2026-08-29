@@ -121,6 +121,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
   （前端默认选中 GitHub 仓库 `cfg` 目录直链；后端 `default_external_config` 默认也是它）。
+  `request_deadline_ms` 已调大到 120 秒：规则集缓存过期后首转会重新全量拉取，默认 15 秒截止时间容易返回 HTTP 504，重试一次即可；频繁出现时可再调大（上限 300 秒）。
 
 ## 快速开始
 
