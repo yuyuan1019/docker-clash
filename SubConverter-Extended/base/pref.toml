@@ -92,8 +92,7 @@ proxy_direct = true
 
 [custom_openclash_rules]
 # 是否在服务端发起请求前，将可识别的官方 COCR 主分支 GitHub/jsDelivr 取源地址切换到 git.asailor.org。不会改写生成结果中的 URL。
-# 国内/无代理环境 NAS 必开：否则 SubConverter 直连 GitHub 拉配置会超时并返回 HTTP 504。
-fallback_enabled = true
+fallback_enabled = false
 
 [[userinfo.stream_rule]]
 # 从节点名称提取流量信息的有序规则；match 为完整正则，replace 使用 total/left/used=$n 的查询串格式。
@@ -427,7 +426,7 @@ max_concurrent_threads = 16
 # cpp-httplib 后端在突发流量下的动态工作线程总上限；必须不小于基础线程数，否则会自动提高。SUBCONVERTER_MAX_SERVER_THREADS 可覆盖。
 max_server_threads = 128
 # 整个 HTTP 请求的绝对截止时间，单位毫秒；所有资源模式使用同一有限截止时间。SUBCONVERTER_REQUEST_DEADLINE_MS 可覆盖，允许范围 100～300000。
-request_deadline_ms = 120000
+request_deadline_ms = 15000
 # 单次配置允许的规则集数量上限；0 表示不限制。
 max_allowed_rulesets = 64
 # 转换时允许生成的规则数量上限；0 表示不限制。
