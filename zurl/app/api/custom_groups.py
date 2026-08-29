@@ -1,6 +1,6 @@
 import re
 
-from app.api.transform_config import load_custom_groups
+from app.api.transform_config import load_custom_groups, load_group_defaults
 
 
 def _group_key(config: dict) -> str | None:
@@ -20,6 +20,46 @@ def _static_proxy_names(config: dict) -> list[str]:
         if isinstance(proxy, dict) and isinstance(proxy.get("name"), str):
             names.append(proxy["name"])
     return names
+
+
+def apply_group_defaults(config: dict, defaults=None) -> int:
+    """把指定分组的默认选中项置顶（mihomo select 组首项即默认）。
+
+    defaults 为 None 时从外置配置读取（group_defaults，热加载）。
+    目标不在成员列表中时直接置顶插入；分组不存在或没有 proxies
+    列表时跳过。返回发生调整的分组数量。
+    """
+    if not isinstance(config, dict):
+        return 0
+    group_key = _group_key(config)
+    if group_key is None:
+        return 0
+    if defaults is None:
+        defaults = load_group_defaults()
+    else:
+        defaults = tuple(defaults)
+
+    by_name = {
+        item.get("name"): item
+        for item in config[group_key]
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    changed = 0
+    for spec in defaults:
+        group = by_name.get(spec["group"])
+        if not isinstance(group, dict):
+            continue
+        members = group.get("proxies")
+        if not isinstance(members, list):
+            continue
+        target = spec["default"]
+        if members and members[0] == target:
+            continue
+        if target in members:
+            members.remove(target)
+        members.insert(0, target)
+        changed += 1
+    return changed
 
 
 def _provider_names(config: dict) -> list[str]:

@@ -117,6 +117,9 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   默认 `exclusive: true`：匹配节点会从其他
   分组（业务组/地区组/手动选择的节点列表）剔除，只能从本组和「♻️ 自动选择」（keep_in 豁免）使用。
   无匹配时不生成该组；置空列表可完全关闭。
+- 各分组默认选中项外置在 `group_defaults`：转换时把指定选项置顶（mihomo select 首项即默认），
+  默认：手动选择/谷歌FCM→香港、ChatGPT/AI服务→台湾、谷歌服务→新加坡、YouTube→CDN 专属组、
+  非标端口→全球直连；同样支持 transform.yaml 热加载。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 - 「切换当前配置」才把 `latest.yaml` 原地写入 `config.yaml` 并重启 mihomo；

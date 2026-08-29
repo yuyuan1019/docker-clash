@@ -120,6 +120,7 @@ class CompatAPI:
         fix_region_name_compatibility(config)
         prefix_duplicate_provider_nodes(config)
         append_custom_groups(config)
+        apply_group_defaults(config)
         # 把 diyua 写入 provider header，防止机场拦截旧 UA。
         error = self._apply_provider_user_agent(config, query_args)
         if error:
@@ -248,6 +249,7 @@ class CompatAPI:
 
         prefix_duplicate_provider_nodes(new_cfg)
         append_custom_groups(new_cfg)
+        apply_group_defaults(new_cfg)
 
         # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}

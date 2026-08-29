@@ -15,6 +15,19 @@
 # - exclusive: true 表示该组匹配的节点从其他分组中剔除（业务组/地区组/
 #   手动选择等都不能再选到），只保留在本组和 keep_in 列出的组
 
+# 各分组的默认选中项（mihomo select 组首项即默认；目标不在列表中时置顶插入）
+group_defaults:
+  - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
+  - {group: "📢 谷歌FCM", default: "🇭🇰 香港节点"}
+  - {group: "🤖 ChatGPT", default: "🇼🇸 台湾节点"}
+  - {group: "🤖 AI服务", default: "🇼🇸 台湾节点"}
+  - {group: "🇬 谷歌服务", default: "🇸🇬 新加坡节点"}
+  - {group: "📹 YouTube", default: "🏷️ CDN/低倍率节点"}
+  - {group: "🔀 非标端口", default: "🎯 全球直连"}
+
+# 手动选择与漏网之鱼因包含地区组，CDN 专属组会自动挂入（紧跟地区组后），
+# 无需在此另配。
+
 custom_groups:
   - name: "🏷️ CDN/低倍率节点"
     # 名称带 CDN/低倍率字样，或倍率 ≤0.5x 的节点

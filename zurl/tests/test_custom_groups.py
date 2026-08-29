@@ -4,10 +4,12 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from app.api.custom_groups import append_custom_groups
+from app.api.custom_groups import apply_group_defaults, append_custom_groups
 from app.api.transform_config import (
     DEFAULT_CUSTOM_GROUPS,
+    DEFAULT_GROUP_DEFAULTS,
     load_custom_groups,
+    load_group_defaults,
 )
 
 CDN_SPEC = {
@@ -281,7 +283,142 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, manual["proxies"].count("🏷️ CDN/低倍率节点"))
 
 
-class TransformConfigLoaderTest(unittest.TestCase):
+class GroupDefaultsTest(unittest.TestCase):
+    def test_moves_existing_member_to_front(self):
+        config = {
+            "proxy-groups": [
+                {
+                    "name": "🔀 非标端口",
+                    "type": "select",
+                    "proxies": ["🐟 漏网之鱼", "🎯 全球直连"],
+                }
+            ]
+        }
+
+        changed = apply_group_defaults(
+            config, [{"group": "🔀 非标端口", "default": "🎯 全球直连"}]
+        )
+
+        self.assertEqual(1, changed)
+        self.assertEqual(
+            ["🎯 全球直连", "🐟 漏网之鱼"], config["proxy-groups"][0]["proxies"]
+        )
+
+    def test_inserts_missing_member_and_is_idempotent(self):
+        config = {
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"],
+                }
+            ]
+        }
+        defaults = [{"group": "🚀 手动选择", "default": "🏷️ CDN/低倍率节点"}]
+
+        self.assertEqual(1, apply_group_defaults(config, defaults))
+        self.assertEqual(
+            ["🏷️ CDN/低倍率节点", "♻️ 自动选择", "🇭🇰 香港节点"],
+            config["proxy-groups"][0]["proxies"],
+        )
+        self.assertEqual(0, apply_group_defaults(config, defaults))
+
+    def test_missing_group_or_without_proxies_is_skipped(self):
+        config = {
+            "proxy-groups": [
+                {"name": "♻️ 自动选择", "type": "url-test", "use": ["机场A"]},
+            ]
+        }
+        defaults = [
+            {"group": "不存在", "default": "🎯 全球直连"},
+            {"group": "♻️ 自动选择", "default": "🇭🇰 香港节点"},
+        ]
+
+        self.assertEqual(0, apply_group_defaults(config, defaults))
+
+    def test_full_flow_with_cocr_composition(self):
+        # 按 COCR Custom_Clash.ini 的真实成员结构建模
+        config = {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点"],
+                },
+                {
+                    "name": "📢 谷歌FCM",
+                    "type": "select",
+                    "proxies": ["🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点", "🇼🇸 台湾节点"],
+                },
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "proxies": [
+                        "🚀 手动选择",
+                        "♻️ 自动选择",
+                        "🇭🇰 香港节点",
+                        "🇺🇸 美国节点",
+                        "🎯 全球直连",
+                    ],
+                    "use": ["机场A"],
+                },
+                {
+                    "name": "🐟 漏网之鱼",
+                    "type": "select",
+                    "proxies": [
+                        "🚀 手动选择",
+                        "♻️ 自动选择",
+                        "🎯 全球直连",
+                        "🇭🇰 香港节点",
+                        "🇰🇷 韩国节点",
+                    ],
+                    "use": ["机场A"],
+                },
+                {
+                    "name": "🔀 非标端口",
+                    "type": "select",
+                    "proxies": ["🐟 漏网之鱼", "🎯 全球直连"],
+                },
+            ],
+        }
+
+        self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
+        self.assertEqual(4, apply_group_defaults(config, DEFAULT_GROUP_DEFAULTS))
+
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # 手动选择：香港节点置顶
+        self.assertEqual(
+            ["🇭🇰 香港节点", "♻️ 自动选择", "🇺🇸 美国节点", "🏷️ CDN/低倍率节点"],
+            groups["🚀 手动选择"]["proxies"],
+        )
+        # 谷歌FCM：香港节点置顶（CDN 组经地区锚点挂在末尾）
+        self.assertEqual(
+            ["🇭🇰 香港节点", "🚀 手动选择", "♻️ 自动选择", "🇼🇸 台湾节点", "🏷️ CDN/低倍率节点"],
+            groups["📢 谷歌FCM"]["proxies"],
+        )
+        # YouTube：CDN 专属组置顶
+        self.assertEqual(
+            ["🏷️ CDN/低倍率节点", "🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🎯 全球直连"],
+            groups["📹 YouTube"]["proxies"],
+        )
+        # 漏网之鱼：CDN 组已通过地区组锚点挂入（非默认项，不置顶）
+        self.assertEqual(
+            [
+                "🚀 手动选择",
+                "♻️ 自动选择",
+                "🎯 全球直连",
+                "🇭🇰 香港节点",
+                "🇰🇷 韩国节点",
+                "🏷️ CDN/低倍率节点",
+            ],
+            groups["🐟 漏网之鱼"]["proxies"],
+        )
+        # 非标端口：全球直连置顶
+        self.assertEqual(
+            ["🎯 全球直连", "🐟 漏网之鱼"],
+            groups["🔀 非标端口"]["proxies"],
+        )
     def setUp(self):
         fd, self.path = tempfile.mkstemp(suffix=".yaml")
         os.close(fd)
@@ -297,13 +434,30 @@ class TransformConfigLoaderTest(unittest.TestCase):
         from app.api import transform_config
 
         transform_config._cache.update(
-            path=None, mtime=None, groups=transform_config.DEFAULT_CUSTOM_GROUPS
+            path=None,
+            mtime=None,
+            groups=transform_config.DEFAULT_CUSTOM_GROUPS,
+            defaults=transform_config.DEFAULT_GROUP_DEFAULTS,
         )
 
     def write(self, text: str):
         with open(self.path, "w", encoding="utf-8") as file:
             file.write(text)
         os.utime(self.path)  # 确保 mtime 变化触发重载
+
+    def test_loads_group_defaults_from_file(self):
+        self.write(
+            'custom_groups: []\n'
+            'group_defaults:\n'
+            '  - group: "🚀 手动选择"\n'
+            '    default: "🇯🇵 日本节点"\n'
+        )
+        groups = load_custom_groups(self.path)
+        defaults = load_group_defaults(self.path)
+        self.assertEqual((), groups)
+        self.assertEqual(
+            ({"group": "🚀 手动选择", "default": "🇯🇵 日本节点"},), defaults
+        )
 
     def test_missing_file_falls_back_to_defaults(self):
         with patch.dict(os.environ, {"TRANSFORM_CONFIG_FILE": "/nonexistent/x.yaml"}):
