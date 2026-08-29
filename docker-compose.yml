@@ -63,11 +63,11 @@ services:
   zurl:
     build:
       context: ./zurl
-      # 国内构建可取消注释使用阿里云 pypi 源 + 中科大 alpine 源
+      # 国内构建使用阿里云 pypi 源 + 中科大 alpine 源
       # （清华源对部分 musllinux wheel 会 403，阿里云更稳；备选见 README）
-      # args:
-      #   PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
-      #   APK_MIRROR: https://mirrors.ustc.edu.cn
+      args:
+        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+        APK_MIRROR: https://mirrors.ustc.edu.cn
     container_name: zurl
     restart: unless-stopped
     environment:
