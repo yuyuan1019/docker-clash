@@ -18,7 +18,7 @@ import aiohttp
 import yaml
 from fastapi import Request, Response
 
-from app.api.custom_groups import append_custom_groups
+from app.api.custom_groups import append_custom_groups, apply_group_defaults
 from app.api.provider_regions import (
     fix_region_name_compatibility,
     prefix_duplicate_provider_nodes,
