@@ -1,6 +1,5 @@
-# 基于redis镜像构建（可通过构建参数覆盖，docker-compose 默认走国内镜像源）
-ARG REDIS_IMAGE=redis:7-alpine
-FROM ${REDIS_IMAGE}
+# 基于redis镜像构建
+FROM redis:7-alpine
 # 可选：指定 pip 镜像源（国内构建加速），默认官方源
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ENV PIP_INDEX_URL=${PIP_INDEX_URL}

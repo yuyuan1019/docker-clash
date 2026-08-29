@@ -1,7 +1,5 @@
 # --- Build stage ---
-# 基础镜像可通过构建参数覆盖（docker-compose 默认走国内镜像源）
-ARG NODE_IMAGE=node:22.18.0-alpine3.22
-FROM ${NODE_IMAGE} AS build
+FROM node:22.18.0-alpine3.22 AS build
 
 # 可选：指定 npm/yarn 镜像源（国内构建加速），默认官方源
 ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org
@@ -22,8 +20,7 @@ COPY . .
 RUN yarn build
 
 # --- Runtime stage ---
-ARG NGINX_IMAGE=nginx:1.24-alpine
-FROM ${NGINX_IMAGE}
+FROM nginx:1.24-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

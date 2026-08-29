@@ -33,13 +33,9 @@ services:
   sub-web:
     build:
       context: ./sub-web-modify
-      # 基础镜像默认走 DaoCloud 镜像源（Docker Hub 直连常 EOF）；
-      # 如需官方源，在 .env 设置 NODE_IMAGE/NGINX_IMAGE 为官方镜像名
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-docker.m.daocloud.io/library/node:22.18.0-alpine3.22}
-        NGINX_IMAGE: ${NGINX_IMAGE:-docker.m.daocloud.io/library/nginx:1.24-alpine}
-        # npm 默认走 npmmirror，国内构建更稳
-        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}
+      # 国内构建可取消注释使用 npmmirror 源
+      # args:
+      #   NPM_CONFIG_REGISTRY: https://registry.npmmirror.com
     container_name: sub-web
     restart: unless-stopped
     networks:
@@ -72,7 +68,6 @@ services:
       args:
         PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
         APK_MIRROR: https://mirrors.ustc.edu.cn
-        REDIS_IMAGE: ${REDIS_IMAGE:-docker.m.daocloud.io/library/redis:7-alpine}
     container_name: zurl
     restart: unless-stopped
     environment:
