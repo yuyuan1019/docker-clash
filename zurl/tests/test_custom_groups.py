@@ -30,6 +30,7 @@ CDN_SPEC = {
         "♻️ 自动选择",
         "🚀 手动选择",
         "🐟 漏网之鱼",
+        "📹 YouTube",
         "🇭🇰 香港节点",
         "🇺🇸 美国节点",
         "🇯🇵 日本节点",
@@ -194,12 +195,13 @@ class AppendCustomGroupsTest(unittest.TestCase):
             ["香港 CDN 01", "日本 0.5x 02", "美国 普通节点"],
             groups["♻️ 自动选择"]["proxies"],
         )
-        # 业务组剔除单个 CDN 节点
+        # YouTube 在豁免列表：保留全部节点（含单个 CDN 节点，可直接选任意节点）
         self.assertEqual(
-            ["🚀 手动选择", "美国 普通节点"], groups["📹 YouTube"]["proxies"]
+            ["🚀 手动选择", "香港 CDN 01", "美国 普通节点"],
+            groups["📹 YouTube"]["proxies"],
         )
 
-    def test_exclusive_drops_node_list_from_business_groups(self):
+    def test_exclusive_keeps_youtube_node_list_drops_other_business_groups(self):
         config = {
             "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
             "proxy-groups": [
@@ -225,6 +227,13 @@ class AppendCustomGroupsTest(unittest.TestCase):
                     "proxies": ["🚀 手动选择", "♻️ 自动选择", "🇸🇬 新加坡节点"],
                 },
                 {
+                    "name": "🐙 GitHub",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
+                    "proxies": ["🚀 手动选择", "♻️ 自动选择", "🇸🇬 新加坡节点"],
+                },
+                {
                     "name": "🔎 纯节点组",
                     "type": "select",
                     "use": ["机场A"],
@@ -236,10 +245,10 @@ class AppendCustomGroupsTest(unittest.TestCase):
         append_custom_groups(config, [CDN_SPEC])
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        # 业务组：.* 节点列表被去掉，只留组引用；不用 exclude-filter
+        # YouTube 在豁免列表：保留 .* 节点列表，组内可直接选任意单个节点
         youtube = groups["📹 YouTube"]
-        self.assertNotIn("use", youtube)
-        self.assertNotIn("filter", youtube)
+        self.assertEqual(["机场A"], youtube["use"])
+        self.assertEqual(".*", youtube["filter"])
         self.assertNotIn("exclude-filter", youtube)
         self.assertEqual(
             [
@@ -249,6 +258,20 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 "🏷️ CDN/低倍率节点",
             ],
             youtube["proxies"],
+        )
+        # 其他业务组：.* 节点列表被去掉，只留组引用；不用 exclude-filter
+        github = groups["🐙 GitHub"]
+        self.assertNotIn("use", github)
+        self.assertNotIn("filter", github)
+        self.assertNotIn("exclude-filter", github)
+        self.assertEqual(
+            [
+                "🚀 手动选择",
+                "♻️ 自动选择",
+                "🇸🇬 新加坡节点",
+                "🏷️ CDN/低倍率节点",
+            ],
+            github["proxies"],
         )
         # 豁免组：手动选择/自动选择/地区组保留节点列表，无 exclude-filter
         manual = groups["🚀 手动选择"]
@@ -266,9 +289,10 @@ class AppendCustomGroupsTest(unittest.TestCase):
         )
         self.assertNotIn("exclude-filter", groups["🏷️ CDN/低倍率节点"])
 
-        # 幂等
+        # 幂等：YouTube 保留节点列表，GitHub 仍去掉，纯节点组仍 exclude-filter 兑底
         append_custom_groups(config, [CDN_SPEC])
-        self.assertNotIn("use", groups["📹 YouTube"])
+        self.assertEqual(["机场A"], groups["📹 YouTube"]["use"])
+        self.assertNotIn("use", groups["🐙 GitHub"])
         self.assertEqual(
             CDN_SPEC["filter"], groups["🔎 纯节点组"].get("exclude-filter")
         )
@@ -368,8 +392,11 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(
             ["香港 CDN 01", "香港 普通节点"], groups["🇭🇰 香港节点"]["proxies"]
         )
-        # 业务组仍剔除单个 CDN 节点
-        self.assertEqual(["香港 普通节点"], groups["📹 YouTube"]["proxies"])
+        # YouTube 在豁免列表：保留全部节点，可直接选任意单个节点
+        self.assertEqual(
+            ["香港 CDN 01", "美国 0.5x 02", "香港 普通节点"],
+            groups["📹 YouTube"]["proxies"],
+        )
 
 
 class GroupDefaultsTest(unittest.TestCase):
@@ -486,7 +513,8 @@ class GroupDefaultsTest(unittest.TestCase):
             ["🇭🇰 香港节点", "🚀 手动选择", "♻️ 自动选择", "🇼🇸 台湾节点", "🏷️ CDN/低倍率节点"],
             groups["📢 谷歌FCM"]["proxies"],
         )
-        # YouTube：CDN 专属组置顶
+        # YouTube：CDN 专属组置顶；在豁免列表，保留 use 全量节点（可选任意节点）
+        self.assertEqual(["机场A"], groups["📹 YouTube"]["use"])
         self.assertEqual(
             ["🏷️ CDN/低倍率节点", "🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🎯 全球直连"],
             groups["📹 YouTube"]["proxies"],
