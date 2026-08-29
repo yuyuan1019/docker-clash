@@ -12,7 +12,7 @@
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
-   远程配置只保留 GitHub 上的 Custom_Clash 系列直链；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
+   远程配置只保留 Custom_OpenClash_Rules 系列（jsDelivr CDN 地址，即 GitHub 仓库 `cfg` 目录的镜像分发）；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
@@ -120,8 +120,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
-  （前端默认选中 GitHub 仓库 `cfg` 目录直链；后端 `default_external_config` 默认也是它）。
-  `request_deadline_ms` 已调大到 120 秒：规则集缓存过期后首转会重新全量拉取，默认 15 秒截止时间容易返回 HTTP 504，重试一次即可；频繁出现时可再调大（上限 300 秒）。
+  （前端默认选中 jsDelivr CDN 地址，内容来自 GitHub 仓库 `cfg` 目录；后端 `default_external_config` 默认也是它）。
 
 ## 快速开始
 
@@ -161,7 +160,7 @@ http://服务器IP:7788/xd/    metacubexd 官方面板
 - **sub-web-modify** `src/views/Subconverter.vue`
   - 新增 `siteOrigin/localBackend/localShort` 动态常量
   - 后端地址、短链选择默认项改为本站动态地址（下拉列表第一项）
-  - 默认远程配置改为 Custom_OpenClash_Rules（GitHub `cfg` 目录直链）
+  - 默认远程配置改为 Custom_OpenClash_Rules（jsDelivr CDN 地址）
   - `makeUrl`/`makeShortUrl` 兜底地址改为本站动态地址
   - `getBackendVersion` 提示语通用化；`download.html` 链接改为跟随当前协议
   - 「从URL解析」支持带 `/subapi` 前缀的本站链接

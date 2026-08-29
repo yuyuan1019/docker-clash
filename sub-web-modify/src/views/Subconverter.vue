@@ -431,7 +431,7 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localShort = siteOrigin + '/short'
-const customClashConfigBase = 'https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/'
+const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/'
 const customClashUrl = name => customClashConfigBase + name
 const customClashVariants = [
   {
@@ -537,7 +537,7 @@ export default {
         clientType: "",
         customBackend: this.getUrlParam() == "" ? localBackend : this.getUrlParam(),
         shortType: localShort,
-        remoteConfig: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Clash.ini",
+        remoteConfig: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini",
         excludeRemarks: "官网|余额|欠费|剩余|套餐|失效|网络优化|年付|更新",
         includeRemarks: "",
         filename: "",
