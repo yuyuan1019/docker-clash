@@ -26,7 +26,15 @@ CDN_SPEC = {
         "🇰🇷 韩国节点",
     ),
     "exclusive": True,
-    "keep_in": ("♻️ 自动选择",),
+    "keep_in": (
+        "♻️ 自动选择",
+        "🇭🇰 香港节点",
+        "🇺🇸 美国节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 新加坡节点",
+        "🇼🇸 台湾节点",
+        "🇰🇷 韩国节点",
+    ),
 }
 
 
@@ -194,6 +202,12 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 },
                 {"name": "♻️ 自动选择", "type": "url-test", "use": ["机场A"]},
                 {
+                    "name": "🇭🇰 香港节点",
+                    "type": "url-test",
+                    "use": ["机场A"],
+                    "filter": "(?i)(香港|HK)",
+                },
+                {
                     "name": "📹 YouTube",
                     "type": "select",
                     "use": ["机场A"],
@@ -208,7 +222,9 @@ class AppendCustomGroupsTest(unittest.TestCase):
         groups = {g["name"]: g for g in config["proxy-groups"]}
         for name in ("🚀 手动选择", "📹 YouTube"):
             self.assertEqual(CDN_SPEC["filter"], groups[name].get("exclude-filter"))
+        # 自动选择与地区组豁免：CDN 节点同时属于各地区，不在地区组剔除
         self.assertNotIn("exclude-filter", groups["♻️ 自动选择"])
+        self.assertNotIn("exclude-filter", groups["🇭🇰 香港节点"])
         self.assertNotIn("exclude-filter", groups["🏷️ CDN/低倍率节点"])
 
         # 幂等：重复执行不会重复拼接 exclude-filter
@@ -281,6 +297,37 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, names.count("🏷️ CDN/低倍率节点"))
         manual = next(g for g in config["proxy-groups"] if g["name"] == "🚀 手动选择")
         self.assertEqual(1, manual["proxies"].count("🏷️ CDN/低倍率节点"))
+
+    def test_exclusive_keeps_static_cdn_nodes_in_region_groups(self):
+        config = {
+            "proxies": [
+                {"name": "香港 CDN 01"},
+                {"name": "美国 0.5x 02"},
+                {"name": "香港 普通节点"},
+            ],
+            "proxy-groups": [
+                {
+                    "name": "🇭🇰 香港节点",
+                    "type": "url-test",
+                    "proxies": ["香港 CDN 01", "香港 普通节点"],
+                },
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "proxies": ["香港 CDN 01", "美国 0.5x 02", "香港 普通节点"],
+                },
+            ],
+        }
+
+        self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
+
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # 地区组保留 CDN 节点（CDN 节点同时属于该地区）
+        self.assertEqual(
+            ["香港 CDN 01", "香港 普通节点"], groups["🇭🇰 香港节点"]["proxies"]
+        )
+        # 业务组仍剔除单个 CDN 节点
+        self.assertEqual(["香港 普通节点"], groups["📹 YouTube"]["proxies"])
 
 
 class GroupDefaultsTest(unittest.TestCase):

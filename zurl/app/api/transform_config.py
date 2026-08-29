@@ -35,7 +35,12 @@ DEFAULT_CUSTOM_GROUPS = (
         "attach_to": (),
         "attach_with": REGION_ANCHOR_GROUPS,
         "exclusive": True,
-        "keep_in": ("♻️ 自动选择",),
+        # CDN/低倍率节点不是独立地区：它们同时属于香港/美国等地区组，
+        # 因此地区组与自动选择一样保留这些节点；剔除只作用于业务组的直接节点列表。
+        "keep_in": (
+            "♻️ 自动选择",
+            *REGION_ANCHOR_GROUPS,
+        ),
     },
 )
 
