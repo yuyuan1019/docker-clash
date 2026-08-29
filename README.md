@@ -121,6 +121,11 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
   （前端默认选中 GitHub 仓库 `cfg` 目录直链；后端 `default_external_config` 默认也是它）。
+  SubConverter 开启了 `[custom_openclash_rules] fallback_enabled`：取源前自动把官方 COCR 的 GitHub/jsDelivr 地址
+  切换到 `git.asailor.org` 镜像（国内/无代理环境 NAS 也能正常拉取，不会改写生成结果中的 URL）；
+  `request_deadline_ms` 已调大到 120 秒，避免冷启动首次转换拉取规则集超过默认 15 秒截止时间而返回 HTTP 504。
+  如需让 SubConverter 走代理取源，可给 subconverter 服务加 `HTTP_PROXY`/`HTTPS_PROXY` 环境变量
+ （`proxy_config`/`proxy_ruleset` 默认 `SYSTEM`，会从环境变量解析）。
 
 ## 快速开始
 
