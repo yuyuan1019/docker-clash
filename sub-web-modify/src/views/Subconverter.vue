@@ -600,6 +600,28 @@ export default {
           });
           return;
         }
+        // 后端地址/短链跟随当前访问域名：保存值是“本站路径形式”（*/subapi 或 */short）时
+        // 自动替换为当前访问地址，避免内外网切换后残留旧域名；外部自定义地址原样保留
+        if (key === "customBackend" || key === "shortType") {
+          const isBackend = key === "customBackend";
+          const fallback = isBackend ? localBackend : localShort;
+          const sitePath = isBackend ? "/subapi" : "/short";
+          const value = saved.form[key];
+          if (typeof value !== "string") return;
+          if (value === "") {
+            this.form[key] = fallback;
+            return;
+          }
+          try {
+            const u = new URL(value);
+            this.form[key] = (u.pathname.replace(/\/+$/, "") === sitePath && u.search === "" && u.hash === "")
+                ? fallback
+                : value;
+          } catch (e) {
+            this.form[key] = value;
+          }
+          return;
+        }
         if (typeof saved.form[key] === typeof this.form[key]) {
           this.form[key] = saved.form[key];
         }
@@ -1016,7 +1038,11 @@ export default {
           this.$message.error("请输入正确的订阅地址!");
           return;
         }
-        const parsedBackend = url.origin + url.pathname.replace(/\/sub$/, "");
+        let parsedBackend = url.origin + url.pathname.replace(/\/$/, "").replace(/\/sub$/, "");
+        // 解析出的是本站后端（*/subapi）时跟随当前访问域名，避免残留旧域名
+        if (/\/subapi$/.test(parsedBackend)) {
+          parsedBackend = localBackend;
+        }
         this.form.customBackend = parsedBackend;
         let param = new URLSearchParams(url.search);
         if (param.get("target")) {

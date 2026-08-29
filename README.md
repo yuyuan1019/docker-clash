@@ -125,6 +125,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 
 - 订阅转换界面的「后端地址」「短链选择」**默认值根据当前访问域名动态生成**
   （`window.location.origin + '/subapi'` / `'/short'`），换域名、换端口、上 HTTPS 均无需改代码。
+  恢复自动保存的表单时，站内形式地址（`*/subapi`、`*/short`）会自动替换为当前访问域名：
+  内网 IP 与外网域名交替访问后无需手动改地址；外部自定义后端原样保留。「从URL解析」解析出的本站后端同样处理。
 - 生成的短链同样是动态的 `当前域名:端口/s/xxxx`（zurl 从反代请求头取 Host/Proto，包括非标准端口）。
 - 一键导入使用 Clash Verge 支持的 `clash://install-config?url=...` 格式；zurl 会转发 SubConverter 的
   `Content-Disposition`，上游未返回时根据 `filename` 参数生成该响应头，使页面“订阅命名”成为客户端配置名称。
@@ -175,7 +177,8 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   - 「订阅命名」移至「远程配置」之后默认展示；提供商名称被修改时自动同步一次命名
   - 移除「自定义配置」按钮及远程配置上传/JS 排序/JS 筛选弹窗及配套死代码
   - 修复「从URL解析」因未定义变量 `builtInMode` 导致解析中断、弹窗不关闭、订阅命名不同步的问题
-  - 「从URL解析」支持带 `/subapi` 前缀的本站链接
+  - 「从URL解析」支持带 `/subapi` 前缀的本站链接；解析出的本站后端地址跟随当前访问域名
+  - 后端地址/短链在恢复自动保存表单时自动跟随当前访问域名（内外网交替访问后自动替换，外部自定义后端保留）
   - 操作按钮重排：首行 生成订阅链接/生成短链接/从URL解析/一键导入 Clash（统一尺寸）；
     「生成最新配置」+「切换当前配置」合并为「更新并应用配置」；mihomo 按钮按状态显示开启/关闭
   - `Dockerfile` 增加 `NPM_CONFIG_REGISTRY` 构建参数；补充 `.dockerignore`
