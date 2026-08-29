@@ -113,7 +113,7 @@ def append_custom_groups(config: dict, groups=None) -> int:
     for spec in exclusive_specs:
         exempt_names.update(spec.get("keep_in", ()))
 
-    if exclude_pattern:
+    if exclusive_specs:
         for item in all_groups:
             if not isinstance(item, dict) or item.get("name") in exempt_names:
                 continue
@@ -124,15 +124,27 @@ def append_custom_groups(config: dict, groups=None) -> int:
                     for member in item["proxies"]
                     if not (isinstance(member, str) and member in matched_union)
                 ]
-            # 形态二：provider filter 组（含业务组的 .* 全量节点）——追加 exclude-filter。
-            if "filter" in item or "use" in item:
-                existing = item.get("exclude-filter")
-                if not isinstance(existing, str) or exclude_pattern not in existing:
-                    item["exclude-filter"] = (
-                        f"{existing}|{exclude_pattern}"
-                        if isinstance(existing, str) and existing
-                        else exclude_pattern
-                    )
+            # 形态二：provider 节点列表（业务组的 .* 全量节点）。
+            if "use" in item or "filter" in item:
+                if isinstance(item.get("proxies"), list) and item["proxies"]:
+                    # 带组引用的业务组：直接去掉 .* 节点列表。既剔除单个 CDN 节点，
+                    # 也避免 exclude-filter 按名字把挂入的「🏷️ CDN/低倍率节点」组
+                    # 本身滤掉（mihomo 的 filter 对显式成员同样生效）。
+                    item.pop("use", None)
+                    item.pop("filter", None)
+                    item.pop("exclude-filter", None)
+                else:
+                    # 纯节点组（无组引用、也挂不了组）：运行时过滤兜底。
+                    existing = item.get("exclude-filter")
+                    if (
+                        not isinstance(existing, str)
+                        or exclude_pattern not in existing
+                    ):
+                        item["exclude-filter"] = (
+                            f"{existing}|{exclude_pattern}"
+                            if isinstance(existing, str) and existing
+                            else exclude_pattern
+                        )
 
     ensured: list[str] = []
     for spec in groups:

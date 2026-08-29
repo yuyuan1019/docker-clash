@@ -28,6 +28,8 @@ CDN_SPEC = {
     "exclusive": True,
     "keep_in": (
         "♻️ 自动选择",
+        "🚀 手动选择",
+        "🐟 漏网之鱼",
         "🇭🇰 香港节点",
         "🇺🇸 美国节点",
         "🇯🇵 日本节点",
@@ -175,22 +177,29 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        # 手动选择：CDN 节点被剔除，专属组紧跟地区组插入
+        # 手动选择在豁免列表：保留全部节点，专属组紧跟地区组插入
         self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点", "美国 普通节点"],
+            [
+                "♻️ 自动选择",
+                "🇭🇰 香港节点",
+                "🏷️ CDN/低倍率节点",
+                "香港 CDN 01",
+                "日本 0.5x 02",
+                "美国 普通节点",
+            ],
             groups["🚀 手动选择"]["proxies"],
         )
-        # 自动选择在 keep_in 豁免列表，保留全部节点
+        # 自动选择在豁免列表，保留全部节点
         self.assertEqual(
             ["香港 CDN 01", "日本 0.5x 02", "美国 普通节点"],
             groups["♻️ 自动选择"]["proxies"],
         )
-        # 业务组同样剔除了 CDN 节点
+        # 业务组剔除单个 CDN 节点
         self.assertEqual(
             ["🚀 手动选择", "美国 普通节点"], groups["📹 YouTube"]["proxies"]
         )
 
-    def test_exclusive_adds_exclude_filter_to_provider_groups(self):
+    def test_exclusive_drops_node_list_from_business_groups(self):
         config = {
             "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
             "proxy-groups": [
@@ -198,7 +207,8 @@ class AppendCustomGroupsTest(unittest.TestCase):
                     "name": "🚀 手动选择",
                     "type": "select",
                     "use": ["机场A"],
-                    "proxies": ["♻️ 自动选择"],
+                    "filter": ".*",
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"],
                 },
                 {"name": "♻️ 自动选择", "type": "url-test", "use": ["机场A"]},
                 {
@@ -211,8 +221,14 @@ class AppendCustomGroupsTest(unittest.TestCase):
                     "name": "📹 YouTube",
                     "type": "select",
                     "use": ["机场A"],
-                    "filter": "(?i)(youtube|yt)",
-                    "proxies": ["🚀 手动选择"],
+                    "filter": ".*",
+                    "proxies": ["🚀 手动选择", "♻️ 自动选择", "🇸🇬 新加坡节点"],
+                },
+                {
+                    "name": "🔎 纯节点组",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
                 },
             ],
         }
@@ -220,16 +236,42 @@ class AppendCustomGroupsTest(unittest.TestCase):
         append_custom_groups(config, [CDN_SPEC])
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        for name in ("🚀 手动选择", "📹 YouTube"):
-            self.assertEqual(CDN_SPEC["filter"], groups[name].get("exclude-filter"))
-        # 自动选择与地区组豁免：CDN 节点同时属于各地区，不在地区组剔除
+        # 业务组：.* 节点列表被去掉，只留组引用；不用 exclude-filter
+        youtube = groups["📹 YouTube"]
+        self.assertNotIn("use", youtube)
+        self.assertNotIn("filter", youtube)
+        self.assertNotIn("exclude-filter", youtube)
+        self.assertEqual(
+            [
+                "🚀 手动选择",
+                "♻️ 自动选择",
+                "🇸🇬 新加坡节点",
+                "🏷️ CDN/低倍率节点",
+            ],
+            youtube["proxies"],
+        )
+        # 豁免组：手动选择/自动选择/地区组保留节点列表，无 exclude-filter
+        manual = groups["🚀 手动选择"]
+        self.assertEqual(["机场A"], manual["use"])
+        self.assertEqual(".*", manual["filter"])
+        self.assertEqual(
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点"], manual["proxies"]
+        )
         self.assertNotIn("exclude-filter", groups["♻️ 自动选择"])
         self.assertNotIn("exclude-filter", groups["🇭🇰 香港节点"])
+        self.assertEqual("(?i)(香港|HK)", groups["🇭🇰 香港节点"]["filter"])
+        # 纯节点组（无组引用）：exclude-filter 兑底
+        self.assertEqual(
+            CDN_SPEC["filter"], groups["🔎 纯节点组"].get("exclude-filter")
+        )
         self.assertNotIn("exclude-filter", groups["🏷️ CDN/低倍率节点"])
 
-        # 幂等：重复执行不会重复拼接 exclude-filter
+        # 幂等
         append_custom_groups(config, [CDN_SPEC])
-        self.assertEqual(CDN_SPEC["filter"], groups["📹 YouTube"].get("exclude-filter"))
+        self.assertNotIn("use", groups["📹 YouTube"])
+        self.assertEqual(
+            CDN_SPEC["filter"], groups["🔎 纯节点组"].get("exclude-filter")
+        )
 
     def test_multiple_groups_and_attach_targets(self):
         iplc_spec = {
