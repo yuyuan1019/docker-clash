@@ -135,7 +135,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   代理服务即停止；再用「切换当前配置」可启动并恢复。
 - 首页卡片头左侧有 mihomo 状态标签（运行中/已停止/未知），每 30 秒自动刷新，点击可手动刷新。
 - 默认远程配置/规则：[Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules)
-  （前端默认选中 jsdelivr 加速地址；后端 `default_external_config` 默认也是它）。
+  （前端默认选中 GitHub 仓库 `cfg` 目录直链；后端 `default_external_config` 默认也是它）。
 
 ## 快速开始
 
@@ -175,7 +175,7 @@ http://服务器IP:7788/xd/    metacubexd 官方面板
 - **sub-web-modify** `src/views/Subconverter.vue`
   - 新增 `siteOrigin/localBackend/localShort` 动态常量
   - 后端地址、短链选择默认项改为本站动态地址（下拉列表第一项）
-  - 默认远程配置改为 Custom_OpenClash_Rules（jsdelivr 地址）
+  - 默认远程配置改为 Custom_OpenClash_Rules（GitHub `cfg` 目录直链）
   - `makeUrl`/`makeShortUrl` 兜底地址改为本站动态地址
   - `getBackendVersion` 提示语通用化；`download.html` 链接改为跟随当前协议
   - 「从URL解析」支持带 `/subapi` 或 `/provider-regions` 前缀的本站链接

@@ -44,6 +44,8 @@ class SmartRequestValidationTest(unittest.TestCase):
             "Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini",
             "https://raw.githubusercontent.com/Aethersailor/"
             "Custom_OpenClash_Rules/refs/heads/main/cfg/Custom_Clash.ini",
+            "https://github.com/Aethersailor/"
+            "Custom_OpenClash_Rules/raw/main/cfg/Custom_Clash.ini",
         ):
             with self.subTest(config_url=config_url):
                 query = {"target": ["clash"], "config": [config_url]}

@@ -434,7 +434,7 @@ const localProviderRegionBackend = siteOrigin + '/provider-regions'
 const localSmartBackend = siteOrigin + '/smart'
 const localSmartProviderRegionBackend = siteOrigin + '/smart-provider-regions'
 const localShort = siteOrigin + '/short'
-const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/'
+const customClashConfigBase = 'https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/'
 const customClashUrl = name => customClashConfigBase + name
 const providerRegionConfigPrefix = 'provider-regions:'
 const smartConfigPrefix = 'smart:'
@@ -603,39 +603,39 @@ export default {
             options: [
               {
                 label: "Custom_Stash（默认）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash.ini"
               },
               {
                 label: "Custom_Stash_Full（全规则）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Full.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Full.ini"
               },
               {
                 label: "Custom_Stash_Lite（精简）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Lite.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Lite.ini"
               },
               {
                 label: "Custom_Stash_GFW（仅GFW名单）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_GFW.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_GFW.ini"
               },
               {
                 label: "Custom_Stash_Mainland（回国）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Mainland.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Mainland.ini"
               },
               {
                 label: "Custom_Stash_Fallback（故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Fallback.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Fallback.ini"
               },
               {
                 label: "Custom_Stash_Full_Fallback（全规则+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Full_Fallback.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Full_Fallback.ini"
               },
               {
                 label: "Custom_Stash_Lite_Fallback（精简+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_Lite_Fallback.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Lite_Fallback.ini"
               },
               {
                 label: "Custom_Stash_GFW_Fallback（GFW+故障转移）",
-                value: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Stash_GFW_Fallback.ini"
+                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_GFW_Fallback.ini"
               }
             ]
           }
@@ -646,7 +646,7 @@ export default {
         clientType: "",
         customBackend: this.getUrlParam() == "" ? localBackend : this.getUrlParam(),
         shortType: localShort,
-        remoteConfig: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini",
+        remoteConfig: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Clash.ini",
         excludeRemarks: "官网|余额|欠费|剩余|套餐|失效|网络优化|年付|更新",
         includeRemarks: "",
         filename: "",

@@ -5,6 +5,7 @@ SMART_CONFIG_HOSTS = {
     "testingcf.jsdelivr.net",
     "cdn.jsdelivr.net",
     "raw.githubusercontent.com",
+    "github.com",
 }
 
 # 与订阅转换页面当前公开的 Clash 远程配置版本保持一致。
@@ -28,6 +29,12 @@ def _is_supported_config_path(hostname: str, path: str, config_name: str) -> boo
         return path in {
             "/Aethersailor/Custom_OpenClash_Rules/main/cfg/" + config_name,
             "/Aethersailor/Custom_OpenClash_Rules/refs/heads/main/cfg/"
+            + config_name,
+        }
+    if hostname == "github.com":
+        return path in {
+            "/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/" + config_name,
+            "/Aethersailor/Custom_OpenClash_Rules/raw/refs/heads/main/cfg/"
             + config_name,
         }
     return path in {
