@@ -11,7 +11,7 @@ from app.api.transform_config import (
 )
 
 CDN_SPEC = {
-    "name": "CDN/低倍率节点",
+    "name": "🏷️ CDN/低倍率节点",
     "filter": r"(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)",
     "type": "select",
     "attach_to": (),
@@ -62,7 +62,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
         groups = {g["name"]: g for g in config["proxy-groups"]}
         # 手动选择与业务组：紧跟最后一个地区组插入
         self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "CDN/低倍率节点"],
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🏷️ CDN/低倍率节点"],
             groups["🚀 手动选择"]["proxies"],
         )
         self.assertEqual(
@@ -71,7 +71,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 "♻️ 自动选择",
                 "🇭🇰 香港节点",
                 "🇺🇸 美国节点",
-                "CDN/低倍率节点",
+                "🏷️ CDN/低倍率节点",
                 "🎯 全球直连",
             ],
             groups["📹 YouTube"]["proxies"],
@@ -100,13 +100,13 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        group = groups["CDN/低倍率节点"]
+        group = groups["🏷️ CDN/低倍率节点"]
         self.assertEqual("select", group["type"])
         self.assertEqual(["机场A", "机场B"], group["use"])
         self.assertEqual(CDN_SPEC["filter"], group["filter"])
         self.assertNotIn("proxies", group)
         self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "CDN/低倍率节点"],
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🏷️ CDN/低倍率节点"],
             groups["🚀 手动选择"]["proxies"],
         )
 
@@ -167,7 +167,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
         groups = {g["name"]: g for g in config["proxy-groups"]}
         # 手动选择：CDN 节点被剔除，专属组紧跟地区组插入
         self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "CDN/低倍率节点", "美国 普通节点"],
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点", "美国 普通节点"],
             groups["🚀 手动选择"]["proxies"],
         )
         # 自动选择在 keep_in 豁免列表，保留全部节点
@@ -207,7 +207,7 @@ class AppendCustomGroupsTest(unittest.TestCase):
         for name in ("🚀 手动选择", "📹 YouTube"):
             self.assertEqual(CDN_SPEC["filter"], groups[name].get("exclude-filter"))
         self.assertNotIn("exclude-filter", groups["♻️ 自动选择"])
-        self.assertNotIn("exclude-filter", groups["CDN/低倍率节点"])
+        self.assertNotIn("exclude-filter", groups["🏷️ CDN/低倍率节点"])
 
         # 幂等：重复执行不会重复拼接 exclude-filter
         append_custom_groups(config, [CDN_SPEC])
@@ -238,11 +238,11 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual("url-test", groups["IPLC 专线"]["type"])
         # CDN 走锚点紧跟地区组；IPLC 走 attach_to 追加末尾
         self.assertEqual(
-            ["🇭🇰 香港节点", "CDN/低倍率节点", "IPLC 专线"],
+            ["🇭🇰 香港节点", "🏷️ CDN/低倍率节点", "IPLC 专线"],
             groups["🚀 手动选择"]["proxies"],
         )
         self.assertEqual(
-            ["🚀 手动选择", "🇭🇰 香港节点", "CDN/低倍率节点", "IPLC 专线"],
+            ["🚀 手动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点", "IPLC 专线"],
             groups["📹 YouTube"]["proxies"],
         )
 
@@ -276,9 +276,9 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
         self.assertEqual(group_count, len(config["proxy-groups"]))
         names = [g["name"] for g in config["proxy-groups"]]
-        self.assertEqual(1, names.count("CDN/低倍率节点"))
+        self.assertEqual(1, names.count("🏷️ CDN/低倍率节点"))
         manual = next(g for g in config["proxy-groups"] if g["name"] == "🚀 手动选择")
-        self.assertEqual(1, manual["proxies"].count("CDN/低倍率节点"))
+        self.assertEqual(1, manual["proxies"].count("🏷️ CDN/低倍率节点"))
 
 
 class TransformConfigLoaderTest(unittest.TestCase):

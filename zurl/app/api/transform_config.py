@@ -29,7 +29,7 @@ REGION_ANCHOR_GROUPS = (
 
 DEFAULT_CUSTOM_GROUPS = (
     {
-        "name": "CDN/低倍率节点",
+        "name": "🏷️ CDN/低倍率节点",
         "filter": r"(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)",
         "type": "select",
         "attach_to": (),

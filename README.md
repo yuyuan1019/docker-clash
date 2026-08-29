@@ -109,7 +109,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
 - 所有 `/subapi/sub` Clash 转换都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
-- 转换结果会自动追加自定义选择组，默认只有「CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
+- 转换结果会自动追加自定义选择组，默认只有「🏷️ CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
   组定义外置在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`），修改保存后下次转换即生效，
   无需重建/重启容器。机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名；
   同时通过 `attach_with` 锚点插入：凡是包含地区组（香港/美国/日本等）的分组（手动选择、YouTube、
