@@ -431,6 +431,8 @@ const shortUrlBackend = process.env.VUE_APP_MYURLS_DEFAULT_BACKEND + '/short'
 const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localProviderRegionBackend = siteOrigin + '/provider-regions'
+// Smart 专版已从「远程配置」下拉移除；保留此后端地址与 smart: 前缀解析，
+// 兼容生产上已保存的表单值（data/zurl/web-form-config.json）和历史短链。
 const localSmartBackend = siteOrigin + '/smart'
 const localSmartProviderRegionBackend = siteOrigin + '/smart-provider-regions'
 const localShort = siteOrigin + '/short'
@@ -469,78 +471,60 @@ const customClashVariants = [
   {
     file: 'Custom_Clash.ini',
     label: 'Custom_Clash（默认推荐）',
-    providerLabel: 'Custom_Clash（香港/日本按提供商细分）',
-    smartLabel: 'Smart（默认版）',
-    smartProviderLabel: 'Smart（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Full.ini',
     label: 'Custom_Clash_Full（GitHub 原版）',
-    providerLabel: 'Custom_Clash_Full（香港/日本按提供商细分）',
-    smartLabel: 'Smart Full（全规则）',
-    smartProviderLabel: 'Smart Full（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Full（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Lite.ini',
     label: 'Custom_Clash_Lite（精简）',
-    providerLabel: 'Custom_Clash_Lite（香港/日本按提供商细分）',
-    smartLabel: 'Smart Lite（精简）',
-    smartProviderLabel: 'Smart Lite（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Lite（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_GFW.ini',
     label: 'Custom_Clash_GFW（仅GFW名单）',
-    providerLabel: 'Custom_Clash_GFW（香港/日本按提供商细分）',
-    smartLabel: 'Smart GFW（仅 GFW 名单）',
-    smartProviderLabel: 'Smart GFW（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_GFW（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Mainland.ini',
     label: 'Custom_Clash_Mainland（回国）',
-    providerLabel: 'Custom_Clash_Mainland（香港/日本按提供商细分）',
-    smartLabel: 'Smart Mainland（回国）',
-    smartProviderLabel: 'Smart Mainland（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Mainland（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Fallback.ini',
     label: 'Custom_Clash_Fallback（故障转移）',
-    providerLabel: 'Custom_Clash_Fallback（香港/日本按提供商细分）',
-    smartLabel: 'Smart Fallback（智能+故障转移）',
-    smartProviderLabel: 'Smart Fallback（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Fallback（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Full_Fallback.ini',
     label: 'Custom_Clash_Full_Fallback（全规则+故障转移）',
-    providerLabel: 'Custom_Clash_Full_Fallback（香港/日本按提供商细分）',
-    smartLabel: 'Smart Full Fallback（全规则+故障转移）',
-    smartProviderLabel: 'Smart Full Fallback（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Full_Fallback（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_Lite_Fallback.ini',
     label: 'Custom_Clash_Lite_Fallback（精简+故障转移）',
-    providerLabel: 'Custom_Clash_Lite_Fallback（香港/日本按提供商细分）',
-    smartLabel: 'Smart Lite Fallback（精简+故障转移）',
-    smartProviderLabel: 'Smart Lite Fallback（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_Lite_Fallback（香港/日本按提供商细分）'
   },
   {
     file: 'Custom_Clash_GFW_Fallback.ini',
     label: 'Custom_Clash_GFW_Fallback（GFW+故障转移）',
-    providerLabel: 'Custom_Clash_GFW_Fallback（香港/日本按提供商细分）',
-    smartLabel: 'Smart GFW Fallback（GFW+故障转移）',
-    smartProviderLabel: 'Smart GFW Fallback（香港/日本按提供商细分）'
+    providerLabel: 'Custom_Clash_GFW_Fallback（香港/日本按提供商细分）'
   }
 ]
 
-function buildCustomClashOptions(smart = false) {
+function buildCustomClashOptions() {
   return customClashVariants.reduce((options, variant) => {
     const configUrl = customClashUrl(variant.file)
     options.push({
-      label: smart ? variant.smartLabel : variant.label,
-      value: (smart ? smartConfigPrefix : '') + configUrl
+      label: variant.label,
+      value: configUrl
     })
     options.push({
-      label: smart ? variant.smartProviderLabel : variant.providerLabel,
-      value: (smart ? smartProviderRegionConfigPrefix : providerRegionConfigPrefix) + configUrl
+      label: variant.providerLabel,
+      value: providerRegionConfigPrefix + configUrl
     })
     return options
   }, [])
@@ -593,51 +577,6 @@ export default {
           {
             label: "Custom_Clash（OpenClash/mihomo）",
             options: buildCustomClashOptions()
-          },
-          {
-            label: "Custom_Clash Smart 专版（仅 OpenClash Smart 内核）",
-            options: buildCustomClashOptions(true)
-          },
-          {
-            label: "Custom_Stash（Stash）",
-            options: [
-              {
-                label: "Custom_Stash（默认）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash.ini"
-              },
-              {
-                label: "Custom_Stash_Full（全规则）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Full.ini"
-              },
-              {
-                label: "Custom_Stash_Lite（精简）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Lite.ini"
-              },
-              {
-                label: "Custom_Stash_GFW（仅GFW名单）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_GFW.ini"
-              },
-              {
-                label: "Custom_Stash_Mainland（回国）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Mainland.ini"
-              },
-              {
-                label: "Custom_Stash_Fallback（故障转移）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Fallback.ini"
-              },
-              {
-                label: "Custom_Stash_Full_Fallback（全规则+故障转移）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Full_Fallback.ini"
-              },
-              {
-                label: "Custom_Stash_Lite_Fallback（精简+故障转移）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_Lite_Fallback.ini"
-              },
-              {
-                label: "Custom_Stash_GFW_Fallback（GFW+故障转移）",
-                value: "https://github.com/Aethersailor/Custom_OpenClash_Rules/raw/main/cfg/Custom_Stash_GFW_Fallback.ini"
-              }
-            ]
           }
         ]
       },

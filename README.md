@@ -14,8 +14,8 @@
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
    每个 Custom_Clash 版本都提供对应的`香港/日本按提供商细分`选项：它保留所选 GitHub 最新配置，
    并额外生成香港、日本的 `地区_提供商` 策略组。建议把每行的提供商名称填写为简短且唯一的简称，例如 `A`、`B`
-   使用 OpenClash **Smart 内核**时，可在 `Custom_Clash Smart 专版` 分组选择对应版本；默认、Full、Lite、GFW、Mainland
-   及四个 Fallback 版本均实时基于 GitHub 上游生成，不保存静态副本。Smart 配置不能用于本站官方 Mihomo 容器。
+   `Custom_Clash Smart 专版` 和 `Custom_Stash` 分组已从下拉移除，只保留 GitHub 上的 Custom_Clash 系列配置；
+   早期生成的 `/smart/`、`/smart-provider-regions/` 订阅链接和已保存的 `smart:` 表单值仍可继续使用。
 5. 「订阅命名」留空会自动填：单订阅=提供商名，多订阅=`合集`；「更新间隔」默认 7 天
 6. 点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`
    生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端；已生成短链时优先导入短链。
@@ -93,8 +93,8 @@ docker compose up -d
 http://域名/         → sub-web-modify      订阅转换前端（本地构建）
 http://域名/subapi/  → SubConverter-Extended 订阅转换后端（官方镜像）
 http://域名/provider-regions/ → GitHub 各 Clash 版本港日提供商复写订阅（zurl 增量生成）
-http://域名/smart/   → GitHub 最新配置 Smart 动态复写订阅（仅 OpenClash Smart 内核）
-http://域名/smart-provider-regions/ → Smart 各版本港日按 provider 细分组合版
+http://域名/smart/   → Smart 动态复写订阅（仅 OpenClash Smart 内核；下拉已移除，仅供历史短链）
+http://域名/smart-provider-regions/ → Smart 各版本港日按 provider 细分组合版（仅供历史短链）
 http://域名/short    → zurl 短链生成 API（POST，nginx 注入内部令牌）
 http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，同上防护）
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
@@ -113,11 +113,12 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - mihomo 的 7890 代理端口默认已对局域网开放（`allow-lan: true`）；
   不需要对外提供代理时，到 `docker-compose.yml` 注释掉 mihomo 的端口映射即可。
 - 「生成最新配置」只拉取转换结果并写入 `config/mihomo/latest.yaml`，不影响当前运行配置。
-- 每个 Custom_Clash 和 Smart 版本都有`香港/日本按提供商细分`选项，不会复制或固定上游配置：每次订阅刷新仍由
+- 每个 Custom_Clash 版本都有`香港/日本按提供商细分`选项，不会复制或固定上游配置：每次订阅刷新仍由
   SubConverter 获取所选 GitHub 配置，zurl 只克隆上游香港、日本组，将 `use` 限定到单个 provider，并把派生组追加到
   可选择的策略中。GFW/GFW Fallback 上游没有地区组时，会继承其自动/故障转移参数生成港日组。
   GitHub 原版选项保持不变；普通复写订阅同样可供外部 OpenClash/Mihomo 客户端使用。
-- Smart 专版同样先由 SubConverter 获取所选 GitHub `main` 分支配置，再把 `url-test` / `load-balance` 自动组动态改为
+- Smart 专版（已从下拉移除，历史 `/smart/` 链接仍按此逻辑工作）同样先由 SubConverter 获取所选 GitHub `main` 分支配置，
+  再把 `url-test` / `load-balance` 自动组动态改为
   `type: smart`，启用 `uselightgbm`、关闭本机训练数据采集，并保留 select/fallback 业务层及上游测试参数。
   Fallback 专版因此仍按上游顺序完成故障转移，内部自动组则使用 Smart 选路。该格式依赖
   [OpenClash Smart 内核](https://github.com/vernesong/OpenClash/tree/core/master/smart)，普通 Meta/Mihomo 内核不支持；
