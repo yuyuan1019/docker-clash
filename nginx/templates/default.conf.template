@@ -65,6 +65,19 @@ server {
         proxy_set_header X-Forwarded-Proto $gateway_proto;
         proxy_read_timeout 30s;
     }
+
+    # ---- 提供商字典（订阅转换页面，保存于 zurl 数据库）----
+    # 前缀匹配覆盖 /gateway/sub-providers 与 /gateway/sub-providers/delete
+    location /gateway/sub-providers {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
+        limit_except GET POST { deny all; }
+        proxy_pass http://$zurl_upstream;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 30s;
+    }
     location @gateway_login_redirect {
         return 302 /login;
     }

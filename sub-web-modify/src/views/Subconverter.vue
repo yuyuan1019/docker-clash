@@ -11,15 +11,37 @@
                   <el-col :xs="24" :sm="8" class="sub-link-name">
                     <el-input v-model="item.name" placeholder="提供商名称/简称，如：A"/>
                   </el-col>
-                  <el-col :xs="21" :sm="14">
+                  <el-col :xs="18" :sm="13">
                     <el-input v-model="item.url" placeholder="订阅链接或单节点链接"/>
                   </el-col>
-                  <el-col :xs="3" :sm="2" style="text-align:center">
-                    <el-button icon="el-icon-delete" circle size="mini" type="danger" plain class="sub-link-del" @click="removeSubLink(index)" :disabled="form.subLinks.length === 1"></el-button>
+                  <el-col :xs="6" :sm="3" class="sub-link-actions">
+                    <el-button icon="el-icon-collection-tag" circle size="mini" type="primary" plain
+                               title="把该行保存到提供商字典"
+                               @click="saveProviderRow(index)"></el-button>
+                    <el-button icon="el-icon-delete" circle size="mini" type="danger" plain
+                               title="删除该行"
+                               @click="removeSubLink(index)" :disabled="form.subLinks.length === 1"></el-button>
                   </el-col>
                 </el-row>
                 <el-button icon="el-icon-plus" size="small" style="width:100%" @click="addSubLink">添加订阅链接</el-button>
-                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider 命名；同源多账号请填写唯一名称，节点会自动增加来源前缀</div>
+                <div class="provider-bar">
+                  <el-select
+                      v-model="providerPick"
+                      filterable
+                      clearable
+                      size="small"
+                      class="provider-pick"
+                      placeholder="从已保存的提供商选择，自动填入上方列表"
+                      @change="onProviderPick"
+                  >
+                    <el-option v-for="p in savedProviders" :key="p.id" :label="p.name" :value="p.id">
+                      <span class="provider-option-name">{{ p.name }}</span>
+                      <span class="provider-option-url">{{ p.url }}</span>
+                    </el-option>
+                  </el-select>
+                  <el-button size="small" icon="el-icon-setting" class="provider-manage-btn" @click="openProviderDialog">管理</el-button>
+                </div>
+                <div class="sub-tip">每行一条订阅；提供商名称会用于 proxy-provider 命名；同源多账号请填写唯一名称，节点会自动增加来源前缀。点击行尾标签按钮可把该行存入提供商字典（保存在服务器数据库中）</div>
               </el-form-item>
               <el-form-item label="生成类型:">
                 <el-select v-model="form.clientType" style="width: 100%">
@@ -320,6 +342,25 @@
         </el-button>
       </div>
     </el-dialog>
+    <el-dialog
+        title="已保存的提供商"
+        :visible.sync="dialogProvidersVisible"
+        :width="isPC ? '72%' : '96%'"
+        append-to-body
+    >
+      <div class="provider-dialog-tip">保存在服务器数据库中的「提供商名称 → 订阅链接」字典；从 URL 解析订阅时会按链接自动补全提供商名称。</div>
+      <el-table :data="savedProviders" size="small" max-height="420" v-loading="providersLoading">
+        <el-table-column prop="name" label="提供商名称" width="160" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="url" label="订阅链接" show-overflow-tooltip></el-table-column>
+        <el-table-column label="操作" :width="isPC ? 170 : 150" align="center">
+          <template slot-scope="scope">
+            <el-button size="mini" type="primary" plain @click="fillProvider(scope.row); dialogProvidersVisible = false">填入</el-button>
+            <el-button size="mini" type="danger" plain @click="removeSavedProvider(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+        <template slot="empty">暂无已保存的提供商，点击订阅链接行尾的标签按钮即可保存</template>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 <script>
@@ -488,6 +529,11 @@ export default {
       shortUrlSource: "",
       loadConfig: "",
       dialogLoadConfigVisible: false,
+      // 提供商字典（保存在服务器数据库中）
+      savedProviders: [],
+      providerPick: "",
+      dialogProvidersVisible: false,
+      providersLoading: false,
       myBot: tgBotLink,
       // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
       xdPanelUrl: window.location.origin + "/xd/"
@@ -557,6 +603,7 @@ export default {
     });
     this.getMihomoStatus();
     this.statusTimer = setInterval(this.getMihomoStatus, 30000);
+    this.loadSavedProviders();
     this.anhei();
     let lightMedia = window.matchMedia('(prefers-color-scheme: light)');
     let darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
@@ -664,6 +711,95 @@ export default {
     selectChanged() {
       this.getBackendVersion();
     },
+    // ===== 提供商字典（保存于服务器数据库）=====
+    loadSavedProviders() {
+      return this.$axios
+          .get("/gateway/sub-providers", { timeout: 10000 })
+          .then(res => {
+            if (res.data.Code === 1 && Array.isArray(res.data.Providers)) {
+              this.savedProviders = res.data.Providers;
+            }
+          })
+          .catch(() => {
+            // 读取失败不影响订阅转换主流程
+          });
+    },
+    providerNameForUrl(url) {
+      const hit = this.savedProviders.find(p => p.url === url);
+      return hit ? hit.name : "";
+    },
+    onProviderPick(id) {
+      const provider = this.savedProviders.find(p => p.id === id);
+      this.providerPick = "";
+      if (provider) this.fillProvider(provider);
+    },
+    fillProvider(provider) {
+      const url = (provider.url || "").trim();
+      // 列表中已有相同链接时仅更新名称；否则填入第一个空行，没有空行则追加新行
+      const exist = this.form.subLinks.find(r => (r.url || "").trim() === url);
+      if (exist) {
+        exist.name = provider.name;
+      } else {
+        const empty = this.form.subLinks.find(r => (r.url || "").trim() === "");
+        if (empty) {
+          empty.name = provider.name;
+          empty.url = provider.url;
+        } else {
+          this.form.subLinks.push({ name: provider.name, url: provider.url });
+        }
+      }
+      this.$message.success(`已填入提供商「${provider.name}」`);
+    },
+    saveProviderRow(index) {
+      const row = this.form.subLinks[index];
+      const name = (row.name || "").trim().replace(/[,|<>]/g, "");
+      const url = (row.url || "").trim();
+      if (!name || !url) {
+        this.$message.error("请先填写该行的提供商名称和订阅链接");
+        return;
+      }
+      this.$axios
+          .post("/gateway/sub-providers", { name, url }, { timeout: 10000 })
+          .then(res => {
+            if (res.data.Code === 1) {
+              this.$message.success(`提供商「${name}」已保存`);
+              this.loadSavedProviders();
+            } else {
+              this.$message.error("保存失败：" + res.data.Message);
+            }
+          })
+          .catch(() => {
+            this.$message.error("保存提供商失败，请检查网络或稍后再试");
+          });
+    },
+    openProviderDialog() {
+      this.dialogProvidersVisible = true;
+      this.providersLoading = true;
+      this.loadSavedProviders().finally(() => {
+        this.providersLoading = false;
+      });
+    },
+    removeSavedProvider(provider) {
+      this.$confirm(`确定删除提供商「${provider.name}」吗？`, "提示", {
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+        type: "warning"
+      }).then(() => {
+        this.$axios
+            .post("/gateway/sub-providers/delete", { id: provider.id }, { timeout: 10000 })
+            .then(res => {
+              if (res.data.Code === 1) {
+                this.$message.success("已删除");
+                this.loadSavedProviders();
+              } else {
+                this.$message.error("删除失败：" + res.data.Message);
+              }
+            })
+            .catch(() => {
+              this.$message.error("删除请求失败，请检查网络或稍后再试");
+            });
+      }).catch(() => {});
+    },
     addSubLink() {
       this.form.subLinks.push({ name: "", url: "" });
     },
@@ -687,6 +823,13 @@ export default {
         }
         return { name, url: link };
       }).filter(r => r.url !== "");
+      // 字典补全：链接命中已保存的提供商时，用字典里的名称填充未命名的行
+      rows.forEach(r => {
+        if (r.name === "") {
+          const dictName = this.providerNameForUrl(r.url);
+          if (dictName) r.name = dictName;
+        }
+      });
       this.form.subLinks = rows.length > 0 ? rows : [{ name: "", url: "" }];
       this.syncNameSnapshot();
     },
@@ -1201,8 +1344,45 @@ export default {
   margin: 0 0 12px !important;
   padding: 0 !important;
 }
-.sub-link-del {
+.sub-link-actions {
   margin-top: 4px;
+  text-align: center;
+  white-space: nowrap;
+}
+.sub-link-actions .el-button + .el-button {
+  margin-left: 6px;
+}
+.provider-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.provider-pick {
+  flex: 1;
+  min-width: 0;
+}
+.provider-manage-btn {
+  flex-shrink: 0;
+}
+.provider-option-name {
+  float: left;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.provider-option-url {
+  float: right;
+  color: #8492a6;
+  font-size: 12px;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.provider-dialog-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+  margin-bottom: 12px;
 }
 .sub-tip {
   font-size: 12px;
