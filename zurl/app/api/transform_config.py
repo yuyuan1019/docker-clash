@@ -56,10 +56,11 @@ ALLOWED_GROUP_TYPES = {"select", "url-test", "fallback", "load-balance"}
 DEFAULT_GROUP_DEFAULTS = (
     {"group": "🚀 手动选择", "default": "🇭🇰 香港节点"},
     {"group": "📢 谷歌FCM", "default": "🇭🇰 香港节点"},
-    {"group": "🤖 ChatGPT", "default": "🇼🇸 台湾节点"},
-    {"group": "🤖 AI服务", "default": "🇼🇸 台湾节点"},
-    {"group": "🇬 谷歌服务", "default": "🇸🇬 新加坡节点"},
-    {"group": "📹 YouTube", "default": "🏷️ CDN/低倍率节点"},
+    {"group": "🤖 ChatGPT", "default": "🇸🇬 新加坡节点"},
+    {"group": "🤖 AI服务", "default": "🇸🇬 新加坡节点"},
+    {"group": "🇬 谷歌服务", "default": "🚀 手动选择"},
+    {"group": "🚀 GitHub", "default": "🚀 手动选择"},
+    {"group": "📹 YouTube", "default": "🚀 手动选择"},
     {"group": "🔀 非标端口", "default": "🎯 全球直连"},
 )
 

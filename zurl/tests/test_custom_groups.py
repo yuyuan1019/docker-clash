@@ -500,7 +500,7 @@ class GroupDefaultsTest(unittest.TestCase):
         }
 
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
-        self.assertEqual(4, apply_group_defaults(config, DEFAULT_GROUP_DEFAULTS))
+        self.assertEqual(3, apply_group_defaults(config, DEFAULT_GROUP_DEFAULTS))
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
         # 手动选择：香港节点置顶
@@ -513,10 +513,10 @@ class GroupDefaultsTest(unittest.TestCase):
             ["🇭🇰 香港节点", "🚀 手动选择", "♻️ 自动选择", "🇼🇸 台湾节点", "🏷️ CDN/低倍率节点"],
             groups["📢 谷歌FCM"]["proxies"],
         )
-        # YouTube：CDN 专属组置顶；在豁免列表，保留 use 全量节点（可选任意节点）
+        # YouTube：默认已指向手动选择（本就首项，不变）；在豁免列表，保留 use 全量节点（可选任意节点）
         self.assertEqual(["机场A"], groups["📹 YouTube"]["use"])
         self.assertEqual(
-            ["🏷️ CDN/低倍率节点", "🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🎯 全球直连"],
+            ["🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点", "🇺🇸 美国节点", "🏷️ CDN/低倍率节点", "🎯 全球直连"],
             groups["📹 YouTube"]["proxies"],
         )
         # 漏网之鱼：CDN 组已通过地区组锚点挂入（非默认项，不置顶）
