@@ -22,12 +22,10 @@
 group_defaults: []
 
 # 配置示例（需要时取消注释并按需调整；目标在配置中不存在时会跳过，
-# 不会插入悬空引用）：
-# - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
+# 不会插入悬空引用；实际生效的配置见 data/zurl/transform.yaml）：
+# - {group: "🔀 非标端口", default: "🎯 全球直连"}
+# - {group: "⏬ PT站点", default: "🎯 全球直连"}
 # - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
-# - {group: "🤖 AI服务", default: "🇸🇬 新加坡节点"}
-# - {group: "🇬 谷歌服务", default: "🚀 手动选择"}
-# - {group: "🚀 GitHub", default: "🚀 手动选择"}
 # - {group: "📹 YouTube", default: "🚀 手动选择"}
 
 # 自定义分组：默认不追加任何组，保持远程模板（GitHub 仓库 cfg 目录的 ini）
