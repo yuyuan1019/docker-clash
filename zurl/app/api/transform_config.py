@@ -13,56 +13,20 @@ import yaml
 
 logger = logging.getLogger("uvicorn.error")
 
-# 内置默认：等价于外置配置只定义这一个组。
-# filter 含义：名称带 CDN/低倍率字样，或倍率 ≤0.5x 的节点
-# （0.5x、x0.5、0.25x、0.1x、0.5倍 等；1x/2x/10.5x 不会命中）。
-# attach_with：凡是包含这些地区组的分组（手动选择、YouTube、GitHub 等业务组），
-# 都会把本组紧跟在最后一个地区组后面插入，与香港节点等同可选。
-REGION_ANCHOR_GROUPS = (
-    "🇭🇰 香港节点",
-    "🇺🇸 美国节点",
-    "🇯🇵 日本节点",
-    "🇸🇬 新加坡节点",
-    "🇼🇸 台湾节点",
-    "🇰🇷 韩国节点",
-)
-
-DEFAULT_CUSTOM_GROUPS = (
-    {
-        "name": "🏷️ CDN/低倍率节点",
-        "filter": r"(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)",
-        "type": "select",
-        "attach_to": (),
-        "attach_with": REGION_ANCHOR_GROUPS,
-        "exclusive": True,
-        # CDN/低倍率节点不是独立地区：它们同时属于香港/美国等地区组；
-        # 手动选择与漏网之鱼保留完整节点列表（含单个 CDN 节点）并挂入专属组；
-        # YouTube 同样豁免：保留 .* 全量节点列表，组内可直接选任意单个节点；
-        # 其余业务组（GitHub 等）则去掉 .* 全量节点列表，只保留组引用。
-        "keep_in": (
-            "♻️ 自动选择",
-            "🚀 手动选择",
-            "🐟 漏网之鱼",
-            "📹 YouTube",
-            *REGION_ANCHOR_GROUPS,
-        ),
-    },
-)
+# 内置默认：不追加任何自定义分组。
+# 保持远程模板（GitHub 仓库 cfg 目录的 ini）原样，只做分组默认项置顶
+# （group_defaults）；如需追加自定义组（如 CDN/低倍率专属组），
+# 在 data/zurl/transform.yaml 的 custom_groups 中自行定义，
+# 参见 config/zurl/transform.example.yaml。
+DEFAULT_CUSTOM_GROUPS = ()
 
 ALLOWED_GROUP_TYPES = {"select", "url-test", "fallback", "load-balance"}
 
-# 内置默认：各分组的默认选中项（mihomo select 组首项即默认）。
-# 与 COCR Custom_Clash.ini 的组名严格一致。
-DEFAULT_GROUP_DEFAULTS = (
-    {"group": "🚀 手动选择", "default": "🇭🇰 香港节点"},
-    {"group": "📢 谷歌FCM", "default": "🇭🇰 香港节点"},
-    {"group": "🤖 ChatGPT", "default": "🇸🇬 新加坡节点"},
-    {"group": "🤖 AI服务", "default": "🇸🇬 新加坡节点"},
-    {"group": "🇬 谷歌服务", "default": "🚀 手动选择"},
-    {"group": "🚀 GitHub", "default": "🚀 手动选择"},
-    {"group": "📹 YouTube", "default": "🚀 手动选择"},
-    {"group": "🔀 非标端口", "default": "🎯 全球直连"},
-)
+# 内置默认：不调整任何分组的默认选中项，保持远程模板（GitHub 仓库
+# cfg 目录的 ini）原样（mihomo select 组首项即默认）。
+# 如需置顶指定分组默认项，在 data/zurl/transform.yaml 的 group_defaults
+# 中自行定义，参见 config/zurl/transform.example.yaml。
+DEFAULT_GROUP_DEFAULTS = ()
 
 _cache: dict = {
     "path": None,

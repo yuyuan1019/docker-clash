@@ -8,57 +8,36 @@
 # 无需重建或重启任何容器。
 #
 # 规则：
-# - 文件缺失或整份格式错误时，自动回退内置默认（仅「CDN/低倍率节点」一组）
+# - 文件缺失或整份格式错误时，自动回退内置默认（内置默认为空：不追加
+#   任何自定义分组，保持远程模板原样）
 # - 单个条目不合法（正则无效、缺 name/filter 等）时跳过该条，其余继续生效
 # - custom_groups: [] 置空表示完全关闭自定义组
 # - 机场订阅按 filter 在 mihomo 运行时筛选节点；静态节点直接点名进组
 # - exclusive: true 表示该组匹配的节点从其他分组中剔除（业务组/地区组/
 #   手动选择等都不能再选到），只保留在本组和 keep_in 列出的组
 
-# 各分组的默认选中项（mihomo select 组首项即默认；目标不在列表中时置顶插入）
-group_defaults:
-  - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
-  - {group: "📢 谷歌FCM", default: "🇭🇰 香港节点"}
-  - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
-  - {group: "🤖 AI服务", default: "🇸🇬 新加坡节点"}
-  - {group: "🇬 谷歌服务", default: "🚀 手动选择"}
-  - {group: "🚀 GitHub", default: "🚀 手动选择"}
-  - {group: "📹 YouTube", default: "🚀 手动选择"}
-  - {group: "🔀 非标端口", default: "🎯 全球直连"}
+# 各分组的默认选中项（mihomo select 组首项即默认）：默认不调整，
+# 保持远程模板原样。需要时可按注释示例自行配置（保存后下次转换即生效）。
 
-# 手动选择、漏网之鱼与 YouTube 因包含地区组，CDN 专属组会自动挂入（紧跟地区
-# 组后），无需在此另配；YouTube 还在 keep_in 豁免列表，保留全量节点列表，
-# 可直接选任意单个节点。
+group_defaults: []
 
-custom_groups:
-  - name: "🏷️ CDN/低倍率节点"
-    # 名称带 CDN/低倍率字样，或倍率 ≤0.5x 的节点
-    # （0.5x、x0.5、0.25x、0.1x、0.5倍 等；1x/2x/10.5x 不会命中）
-    filter: '(?i)(?:cdn|低倍率|\b0(?:\.\d+)?\s*[x×倍]|[x×]\s*0(?:\.\d+)?\b)'
-    type: select                 # 可选 select / url-test / fallback / load-balance
-    attach_with:                 # 包含这些地区组的分组（手动选择、YouTube、GitHub 等
-      - "🇭🇰 香港节点"            # 业务组），本组紧跟最后一个地区组插入，与香港节点
-      - "🇺🇸 美国节点"            # 同可选
-      - "🇯🇵 日本节点"
-      - "🇸🇬 新加坡节点"
-      - "🇼🇸 台湾节点"
-      - "🇰🇷 韩国节点"
-    attach_to: []                # 无锚点时的回退：追加到这些组末尾
-    exclusive: true              # 匹配节点从业务组的全量节点列表剔除（去掉 .* 列表）
-    keep_in:                      # 豁免：这些组保留完整节点列表（CDN 节点同时属于
-      - "♻️ 自动选择"             # 所有地区，不是独立地区；手动选择/漏网之鱼也要全量节点；
-      - "🚀 手动选择"             # YouTube 保留全量节点，组内可直接选任意单个节点）
-      - "🐟 漏网之鱼"
-      - "📹 YouTube"
-      - "🇭🇰 香港节点"
-      - "🇺🇸 美国节点"
-      - "🇯🇵 日本节点"
-      - "🇸🇬 新加坡节点"
-      - "🇼🇸 台湾节点"
-      - "🇰🇷 韩国节点"
-  # 追加更多组示例：
-  # - name: "IPLC 专线"
-  #   filter: "(?i)(iplc|专线)"
-  #   type: select
-  #   attach_to: ["🚀 手动选择"]
-  #   exclusive: false
+# 配置示例（需要时取消注释并按需调整；目标在配置中不存在时会跳过，
+# 不会插入悬空引用）：
+# - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
+# - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
+# - {group: "🤖 AI服务", default: "🇸🇬 新加坡节点"}
+# - {group: "🇬 谷歌服务", default: "🚀 手动选择"}
+# - {group: "🚀 GitHub", default: "🚀 手动选择"}
+# - {group: "📹 YouTube", default: "🚀 手动选择"}
+
+# 自定义分组：默认不追加任何组，保持远程模板（GitHub 仓库 cfg 目录的 ini）
+# 原样。如需追加自定义组，可参考下方示例（保存后下次转换即生效）。
+
+custom_groups: []
+
+# 追加自定义组示例：
+# - name: "IPLC 专线"
+#   filter: "(?i)(iplc|专线)"
+#   type: select              # 可选 select / url-test / fallback / load-balance
+#   attach_to: ["🚀 手动选择"]  # 追加到这些组末尾
+#   exclusive: false

@@ -10,9 +10,16 @@ server {
     listen 80;
     server_name _;
 
-    # Docker 内置 DNS；对可由页面停止/启动的 mihomo 使用运行时解析，避免
-    # mihomo 停止时 nginx 因启动阶段解析失败而拖垮整个 Web 入口。
+    # Docker 内置 DNS；所有 upstream 一律用变量引用（见下方 set），确保运行时
+    # 重新解析：容器重建换 IP 后 nginx 不会因缓存旧 IP 而连接拒绝；
+    # 同时避免 mihomo 停止时 nginx 因启动阶段解析失败而拖垮整个 Web 入口。
     resolver 127.0.0.11 ipv6=off valid=10s;
+
+    # 变量形式的 upstream（配合上方 resolver 按需解析，不要写回静态主机名）
+    set $zurl_upstream zurl:3080;
+    set $subconverter_upstream subconverter:25500;
+    set $subweb_upstream sub-web:80;
+    set $xd_upstream metacubexd:80;
 
     # 保持重定向为相对地址，让浏览器沿用外部访问的协议、域名和端口（如 :7788）。
     absolute_redirect off;
@@ -23,27 +30,27 @@ server {
     # ---- 公网入口认证：zurl 校验 HttpOnly Cookie，未登录统一跳登录页 ----
     location = /_gateway_auth {
         internal;
-        proxy_pass http://zurl:3080/gateway/auth;
+        proxy_pass http://$zurl_upstream/gateway/auth;
         proxy_pass_request_body off;
         proxy_set_header Content-Length "";
         proxy_set_header Cookie $http_cookie;
         proxy_set_header X-Real-IP $remote_addr;
     }
     location = /login {
-        proxy_pass http://zurl:3080/gateway/login-page;
+        proxy_pass http://$zurl_upstream/gateway/login-page;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
     }
     location = /gateway/login {
         limit_except POST { deny all; }
-        proxy_pass http://zurl:3080/gateway/login;
+        proxy_pass http://$zurl_upstream/gateway/login;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
     }
     location = /logout {
-        proxy_pass http://zurl:3080/gateway/logout;
+        proxy_pass http://$zurl_upstream/gateway/logout;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
@@ -52,7 +59,7 @@ server {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
         limit_except GET POST { deny all; }
-        proxy_pass http://zurl:3080/gateway/form-config;
+        proxy_pass http://$zurl_upstream/gateway/form-config;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-Proto $gateway_proto;
@@ -73,7 +80,8 @@ server {
     location /xd/ {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
-        proxy_pass http://metacubexd:80/;
+        rewrite ^/xd/(.*)$ /$1 break;
+        proxy_pass http://$xd_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -111,7 +119,7 @@ server {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
-        proxy_pass http://zurl:3080/apply;
+        proxy_pass http://$zurl_upstream/apply;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -125,7 +133,7 @@ server {
     location = /mihomo/status {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
-        proxy_pass http://zurl:3080/mihomo/status;
+        proxy_pass http://$zurl_upstream/mihomo/status;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -139,7 +147,7 @@ server {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
-        proxy_pass http://zurl:3080;
+        proxy_pass http://$zurl_upstream;
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -154,7 +162,7 @@ server {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
         limit_except POST { deny all; }
-        proxy_pass http://zurl:3080/short;
+        proxy_pass http://$zurl_upstream/short;
         # 注意：location 内一旦定义 proxy_set_header，server 级的同名指令不再继承，需全部重写
         # $host 会丢掉 7788 这类非标准端口；短链必须保留用户实际访问的 host:port
         proxy_set_header Host $http_host;
@@ -168,7 +176,10 @@ server {
 
     # ---- zurl 短链解析跳转：/s/xxxx → zurl /xxxx（302）----
     location /s/ {
-        proxy_pass http://zurl:3080/;
+        # 去掉 /s/ 前缀：/s/xxxx → zurl /xxxx（变量形式的 proxy_pass 不会
+        # 自动做前缀替换，需显式 rewrite）
+        rewrite ^/s/(.*)$ /$1 break;
+        proxy_pass http://$zurl_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -178,7 +189,7 @@ server {
 
     # ---- 版本探测：注入脚本探测头，使后端返回纯文本版本号而非 HTML 面板页 ----
     location = /subapi/version {
-        proxy_pass http://subconverter:25500/version;
+        proxy_pass http://$subconverter_upstream/version;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -190,7 +201,7 @@ server {
 
     # 所有 GET 订阅转换先经过地区名称兼容层；其余后端接口保持直连。
     location = /subapi/sub {
-        proxy_pass http://zurl:3080/subapi-compat/sub;
+        proxy_pass http://$zurl_upstream/subapi-compat/sub;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -202,7 +213,9 @@ server {
 
     # ---- SubConverter-Extended 后端：/subapi/xxx → :25500/xxx ----
     location /subapi/ {
-        proxy_pass http://subconverter:25500/;
+        # 去掉 /subapi/ 前缀（变量形式的 proxy_pass 需显式 rewrite）
+        rewrite ^/subapi/(.*)$ /$1 break;
+        proxy_pass http://$subconverter_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -217,7 +230,7 @@ server {
     location / {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
-        proxy_pass http://sub-web:80;
+        proxy_pass http://$subweb_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -47,8 +47,7 @@ docker compose up -d
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Lite/GFW 等变体）。
-   远程配置只保留 Custom_OpenClash_Rules 系列；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
-   仅默认推荐的 `Custom_Clash.ini` 覆写为 GitHub 原版 raw 地址（不走 CDN），其余变体仍走 jsDelivr CDN 镜像。
+   远程配置只保留 Custom_OpenClash_Rules 系列（jsDelivr CDN 地址，即 GitHub 仓库 `cfg` 目录的镜像分发）；Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
 5. 「订阅命名」紧跟「远程配置」之后默认展示：留空自动填（单订阅=提供商名，多订阅=`合集`）；
    手动修改提供商名称时会自动同步一次命名（手动改过命名后，再次修改提供商名称即可重新同步）。「更新间隔」默认 7 天
 6. 首行操作按钮：点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`；
@@ -140,19 +139,13 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 
 - 所有 `/subapi/sub` Clash 转换都会经过统一地区兼容层：
   `Tokyo` 归入日本、`Incheon` 归入韩国、`California` 归入美国，并同步从“其他地区”及兜底候选中排除。
-- 转换结果会自动追加自定义选择组，默认只有「🏷️ CDN/低倍率节点」（名称含 `CDN`/`低倍率`，或倍率 ≤0.5x 的节点：0.5x、x0.25、0.1倍等）；
-  组定义外置在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`），修改保存后下次转换即生效，
-  无需重建/重启容器。机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名；
-  同时通过 `attach_with` 锚点插入：凡是包含地区组（香港/美国/日本等）的分组（手动选择、YouTube、
-  GitHub 等业务组），专属组会紧跟最后一个地区组插入，与香港节点同可选；不含地区组的分组（如非标端口）不受影响。
-  默认 `exclusive: true`：**业务组**（GitHub 等带 `.*` 全量节点列表的）会直接去掉该节点列表，
-  只留组引用（手动选择/地区组/专属组）；**地区组、自动选择、手动选择、漏网之鱼、YouTube** 豁免，
-  保留完整节点列表（CDN/低倍率节点同时属于所有地区，不是独立地区；YouTube 保留全量节点，
-  组内可直接选任意单个节点）。不使用 exclude-filter，避免按名字误滤挂入的专属组。
-  无匹配时不生成该组；置空列表可完全关闭。
-- 各分组默认选中项外置在 `group_defaults`：转换时把指定选项置顶（mihomo select 首项即默认），
-  默认：手动选择/谷歌FCM→香港、ChatGPT/AI服务→新加坡、谷歌服务/GitHub/YouTube→手动选择、
-  非标端口→全球直连；同样支持 transform.yaml 热加载。
+- 默认不追加任何自定义分组，保持远程模板（GitHub 仓库 `cfg` 目录的 ini）原样；
+  如需追加自定义组，可在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`）
+  的 `custom_groups` 中自行定义，修改保存后下次转换即生效，无需重建/重启容器。
+  机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名。
+- 默认不调整任何分组的默认选中项，保持远程模板原样（mihomo select 组首项即默认）；
+  如需置顶指定分组的默认项，可在 `data/zurl/transform.yaml` 的 `group_defaults` 中
+  自行配置（模板：`config/zurl/transform.example.yaml`），同样支持热加载。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 
@@ -190,7 +183,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   - `POST /apply` 只生成候选 `latest.yaml`；`POST /mihomo/latest-config` 才切换当前配置并重启 mihomo；
     `POST /mihomo/{start,stop}` 经 Docker socket 启停容器
   - `GET/POST /gateway/form-config`：网页表单自动保存与恢复
-  - 转换增强层：地区归并、CDN/低倍率专属组、`group_defaults` 默认选中项（`transform.yaml` 热加载）
+  - 转换增强层：地区归并、自定义组 `custom_groups`、默认选中项 `group_defaults`（均默认关闭，`transform.yaml` 热加载开启）
   - `app/routers/routers.py` 注册 `/short`、`/apply` 路由；`DENY_SHORT_URLS` 增加 `short`、`s`、`apply`
   - `Dockerfile` 增加 `PIP_INDEX_URL` 构建参数；`requirements.txt` 增加 `pyyaml`；补充 `.dockerignore`
 - **SubConverter-Extended**：无代码修改，仅复制 `base/pref.example.toml` → `base/pref.toml` 用于挂载

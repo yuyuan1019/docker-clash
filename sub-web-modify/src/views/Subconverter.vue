@@ -332,14 +332,11 @@ const siteOrigin = window.location.origin
 const localBackend = siteOrigin + '/subapi'
 const localShort = siteOrigin + '/short'
 const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/'
-// 仅默认推荐的 Custom_Clash.ini 覆写为 GitHub 原版 raw 地址（不走 CDN）；
-// 其余变体未指定 url，仍走上方 jsDelivr 基址
-const customClashUrl = variant => variant.url || customClashConfigBase + variant.file
+const customClashUrl = name => customClashConfigBase + name
 const customClashVariants = [
   {
     file: 'Custom_Clash.ini',
-    label: 'Custom_Clash（默认推荐）',
-    url: 'https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/refs/heads/main/cfg/Custom_Clash.ini'
+    label: 'Custom_Clash（默认推荐）'
   },
   {
     file: 'Custom_Clash_Full.ini',
@@ -379,7 +376,7 @@ function buildCustomClashOptions() {
   return customClashVariants.reduce((options, variant) => {
     options.push({
       label: variant.label,
-      value: customClashUrl(variant)
+      value: customClashUrl(variant.file)
     })
     return options
   }, [])
@@ -438,7 +435,7 @@ export default {
         clientType: "",
         customBackend: this.getUrlParam() == "" ? localBackend : this.getUrlParam(),
         shortType: localShort,
-        remoteConfig: "https://raw.githubusercontent.com/Aethersailor/Custom_OpenClash_Rules/refs/heads/main/cfg/Custom_Clash.ini",
+        remoteConfig: "https://testingcf.jsdelivr.net/gh/Aethersailor/Custom_OpenClash_Rules@refs/heads/main/cfg/Custom_Clash.ini",
         excludeRemarks: "官网|余额|欠费|剩余|套餐|失效|网络优化|年付|更新",
         includeRemarks: "",
         filename: "",

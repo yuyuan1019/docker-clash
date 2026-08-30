@@ -1,6 +1,7 @@
 import os
 import re
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -534,8 +535,15 @@ class GroupDefaultsTest(unittest.TestCase):
             ],
         }
 
+        # 内置默认已置空（不调整任何分组）；这里显式传入默认项验证机制
+        explicit_defaults = (
+            {"group": "🚀 手动选择", "default": "🇭🇰 香港节点"},
+            {"group": "📢 谷歌FCM", "default": "🇭🇰 香港节点"},
+            {"group": "📹 YouTube", "default": "🚀 手动选择"},
+            {"group": "🔀 非标端口", "default": "🎯 全球直连"},
+        )
         self.assertEqual(1, append_custom_groups(config, [CDN_SPEC]))
-        self.assertEqual(3, apply_group_defaults(config, DEFAULT_GROUP_DEFAULTS))
+        self.assertEqual(3, apply_group_defaults(config, explicit_defaults))
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
         # 手动选择：香港节点置顶
@@ -595,7 +603,11 @@ class GroupDefaultsTest(unittest.TestCase):
     def write(self, text: str):
         with open(self.path, "w", encoding="utf-8") as file:
             file.write(text)
-        os.utime(self.path)  # 确保 mtime 变化触发重载
+        # 强制 mtime 严格递增：部分文件系统 mtime 精度较粗（同一秒内两次写入
+        # 可能得到相同 mtime），热加载会误判为未变更
+        self._tick = getattr(self, "_tick", 0) + 1
+        t = time.time() + self._tick
+        os.utime(self.path, (t, t))
 
     def test_loads_group_defaults_from_file(self):
         self.write(
