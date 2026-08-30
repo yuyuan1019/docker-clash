@@ -5,6 +5,7 @@ from app.api.sys import SysAPI
 from app.api.user import UserAPI, UserItem
 from app.api.url import *
 from app.api.compat import CompatAPI
+from app.api.sub_providers import SubProviderAPI
 from app.api import gateway_auth
 from app.middleware.auth import get_current_session
 from app.models.sessions import Sessions
@@ -21,6 +22,7 @@ urlAPI = UrlAPI()
 compatAPI = CompatAPI()
 sysAPI = SysAPI()
 optionAPI = OptionAPI()
+subProviderAPI = SubProviderAPI()
 
 # 公网入口认证（仅供 nginx auth_request 与登录页调用）
 @router.get("/gateway/auth")
@@ -46,6 +48,19 @@ async def gateway_get_form_config(request: Request):
 @router.post("/gateway/form-config")
 async def gateway_save_form_config(request: Request):
     return await gateway_auth.save_form_config(request)
+
+# 提供商字典（订阅转换页面，保存于数据库）
+@router.get("/gateway/sub-providers")
+async def gateway_list_sub_providers(request: Request):
+    return await subProviderAPI.list_providers(request)
+
+@router.post("/gateway/sub-providers")
+async def gateway_save_sub_provider(request: Request):
+    return await subProviderAPI.save_provider(request)
+
+@router.post("/gateway/sub-providers/delete")
+async def gateway_delete_sub_provider(request: Request):
+    return await subProviderAPI.delete_provider(request)
 
 # 首页
 @router.get("/")

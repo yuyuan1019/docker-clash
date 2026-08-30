@@ -6,6 +6,7 @@ from app.models.sessions import Sessions
 from app.models.urls import Urls
 from app.models.conn import Base
 from app.models.options import Options
+from app.models.sub_providers import SubProvider
 from alembic import context
 
 
