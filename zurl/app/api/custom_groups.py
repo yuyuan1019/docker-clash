@@ -1,6 +1,12 @@
+import logging
 import re
 
 from app.api.transform_config import load_custom_groups, load_group_defaults
+
+logger = logging.getLogger("uvicorn.error")
+
+# mihomo 内置策略，作为默认项目标永远合法
+BUILTIN_POLICIES = frozenset({"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE"})
 
 
 def _group_key(config: dict) -> str | None:
@@ -26,7 +32,10 @@ def apply_group_defaults(config: dict, defaults=None) -> int:
     """把指定分组的默认选中项置顶（mihomo select 组首项即默认）。
 
     defaults 为 None 时从外置配置读取（group_defaults，热加载）。
-    目标不在成员列表中时直接置顶插入；分组不存在或没有 proxies
+    目标已在成员列表中时移到置顶；目标不在列表中时仅当它在配置中
+    确实存在（其他分组、静态节点或内置策略）才插入引用，避免插入
+    悬空引用导致 mihomo 解析失败直接退出（转换后端偶尔会因远程配置
+    拉取异常而生成分组缺失的降级配置）。分组不存在或没有 proxies
     列表时跳过。返回发生调整的分组数量。
     """
     if not isinstance(config, dict):
@@ -44,6 +53,11 @@ def apply_group_defaults(config: dict, defaults=None) -> int:
         for item in config[group_key]
         if isinstance(item, dict) and isinstance(item.get("name"), str)
     }
+    # 合法目标 = 配置中真实存在的分组/静态节点 + mihomo 内置策略；
+    # 其余一律跳过，防止把不存在的组名插进 proxies 造成 mihomo 启动失败。
+    valid_targets = (
+        set(by_name) | set(_static_proxy_names(config)) | BUILTIN_POLICIES
+    )
     changed = 0
     for spec in defaults:
         group = by_name.get(spec["group"])
@@ -54,6 +68,14 @@ def apply_group_defaults(config: dict, defaults=None) -> int:
             continue
         target = spec["default"]
         if members and members[0] == target:
+            continue
+        if target not in members and target not in valid_targets:
+            logger.warning(
+                "group_defaults 跳过：%s 的默认项 %s 在配置中不存在（可能是降级配置），"
+                "未插入避免悬空引用",
+                spec["group"],
+                target,
+            )
             continue
         if target in members:
             members.remove(target)

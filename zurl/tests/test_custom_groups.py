@@ -421,13 +421,15 @@ class GroupDefaultsTest(unittest.TestCase):
         )
 
     def test_inserts_missing_member_and_is_idempotent(self):
+        # 目标组已在配置中定义（append_custom_groups 先于 apply_group_defaults）
         config = {
             "proxy-groups": [
                 {
                     "name": "🚀 手动选择",
                     "type": "select",
                     "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"],
-                }
+                },
+                {"name": "🏷️ CDN/低倍率节点", "type": "select", "proxies": []},
             ]
         }
         defaults = [{"group": "🚀 手动选择", "default": "🏷️ CDN/低倍率节点"}]
@@ -438,6 +440,39 @@ class GroupDefaultsTest(unittest.TestCase):
             config["proxy-groups"][0]["proxies"],
         )
         self.assertEqual(0, apply_group_defaults(config, defaults))
+
+    def test_dangling_reference_is_skipped(self):
+        # 回归：远程配置拉取异常时 subconverter 可能生成分组缺失的降级配置，
+        # 默认项指向不存在的组时不得插入悬空引用（会导致 mihomo 解析失败）
+        config = {
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择"],
+                },
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择", "🚀 手动选择"],
+                },
+                {"name": "♻️ 自动选择", "type": "url-test", "use": ["机场A"]},
+            ]
+        }
+        defaults = [
+            {"group": "🚀 手动选择", "default": "🇭🇰 香港节点"},  # 不存在：跳过
+            {"group": "📹 YouTube", "default": "🚀 手动选择"},  # 存在：置顶
+        ]
+
+        self.assertEqual(1, apply_group_defaults(config, defaults))
+        # 手动选择未被插入不存在的香港节点
+        self.assertEqual(
+            ["♻️ 自动选择"], config["proxy-groups"][0]["proxies"]
+        )
+        # YouTube 的手动选择被置顶
+        self.assertEqual(
+            ["🚀 手动选择", "♻️ 自动选择"], config["proxy-groups"][1]["proxies"]
+        )
 
     def test_missing_group_or_without_proxies_is_skipped(self):
         config = {
