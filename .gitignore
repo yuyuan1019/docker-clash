@@ -6,6 +6,12 @@ data/
 
 # mihomo 实际配置（含密钥，参考 config/mihomo/config.example.yaml）
 config/mihomo/config.yaml
+# mihomo 转换生成的最新配置（运行时产物）
+config/mihomo/latest.yaml
+
+# metacubexd 面板镜像包与解压产物（运行时产物）
+metacubexd-image.tar.gz
+metacubexd/
 
 # 依赖与构建产物
 node_modules/
