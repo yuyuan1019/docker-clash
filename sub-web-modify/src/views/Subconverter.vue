@@ -376,6 +376,10 @@ const customClashConfigBase = 'https://testingcf.jsdelivr.net/gh/Aethersailor/Cu
 const customClashUrl = name => customClashConfigBase + name
 const customClashVariants = [
   {
+    url: 'http://sub-web/configs/Custom_Clash_BiliHK.ini',
+    label: 'Custom_Clash_BiliHK（哔哩哔哩港台）'
+  },
+  {
     file: 'Custom_Clash.ini',
     label: 'Custom_Clash（默认推荐）'
   },
@@ -417,7 +421,7 @@ function buildCustomClashOptions() {
   return customClashVariants.reduce((options, variant) => {
     options.push({
       label: variant.label,
-      value: customClashUrl(variant.file)
+      value: variant.url || customClashUrl(variant.file)
     })
     return options
   }, [])
