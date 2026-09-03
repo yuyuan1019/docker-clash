@@ -12,7 +12,8 @@ import os
 import re
 import tempfile
 import time
-from urllib.parse import parse_qs, quote, urlparse
+import uuid
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import aiohttp
 import yaml
@@ -47,6 +48,10 @@ MIHOMO_CONTAINER = os.environ.get("MIHOMO_CONTAINER", "mihomo")
 # 转换应用后自动写入 mihomo 的管理端口与密钥
 MIHOMO_EXTERNAL_CONTROLLER = os.environ.get("MIHOMO_EXTERNAL_CONTROLLER", "0.0.0.0:9090")
 MIHOMO_SECRET = os.environ.get("MIHOMO_SECRET", "yuan")
+# 「净化并生成」产出的静态快照：每个地址仅包含当次筛选成功的节点，
+# 不含原始机场链接或 /scsub/all.yaml provider。
+CLEAN_SNAPSHOT_DIR = os.environ.get("CLEAN_SNAPSHOT_DIR", "/opt/zurl/app/data/clean-snapshots")
+CLEAN_SUBSCRIPTION_URL = os.environ.get("CLEAN_SUBSCRIPTION_URL", "http://subs-check:8199/sub/all.yaml")
 
 def _resp(code: int, message: str, short_url: str = ""):
     # 前端按 res.data.Code === 1 && res.data.ShortUrl !== "" 判断成功，
@@ -144,6 +149,123 @@ class CompatAPI:
             media_type="text/yaml",
             headers=response_headers,
         )
+
+    @staticmethod
+    def _inline_clean_nodes(template: dict, nodes: dict) -> dict:
+        """把 SubConverter 的 provider 配置固化为当次筛选节点快照。
+
+        COCR 生成的策略组以 ``use: [provider] + filter`` 动态选节点；静态
+        快照不能保留 provider，因此在生成时按同一正则展开为 proxies 列表。
+        """
+        clean_nodes = nodes.get("proxies")
+        if not isinstance(clean_nodes, list) or not clean_nodes:
+            raise ValueError("筛选结果中没有可用节点")
+        names = [item.get("name") for item in clean_nodes
+                 if isinstance(item, dict) and isinstance(item.get("name"), str)]
+        if not names:
+            raise ValueError("筛选结果节点名称无效")
+        providers = set((template.get("proxy-providers") or {}).keys())
+        for group in template.get("proxy-groups") or []:
+            if not isinstance(group, dict):
+                continue
+            used = group.get("use")
+            if not isinstance(used, list) or not providers.intersection(used):
+                continue
+            try:
+                pattern = re.compile(str(group.get("filter", ".*")))
+                excluded = group.get("exclude-filter")
+                excluded_pattern = re.compile(str(excluded)) if excluded else None
+            except re.error as exc:
+                raise ValueError(f"策略组筛选正则无效：{exc}")
+            selected = [name for name in names if pattern.search(name) and
+                        not (excluded_pattern and excluded_pattern.search(name))]
+            # 保留策略组已有的手动选择/其他策略组，再追加匹配到的实际节点。
+            existing = group.get("proxies")
+            existing = existing if isinstance(existing, list) else []
+            group["proxies"] = existing + [name for name in selected if name not in existing]
+            group.pop("use", None)
+            group.pop("filter", None)
+            group.pop("exclude-filter", None)
+        template.pop("proxy-providers", None)
+        template["proxies"] = clean_nodes
+        return template
+
+    async def clean_snapshot_create(self, request: Request):
+        """生成一个不可自动更新的、内嵌净化节点的 Clash 快照订阅。"""
+        if SHORT_TOKEN and request.headers.get("x-short-token", "") != SHORT_TOKEN:
+            return _resp(0, "unauthorized")
+        try:
+            payload = await request.json()
+        except Exception:
+            return _resp(0, "请求不是有效 JSON")
+        if not isinstance(payload, dict):
+            return _resp(0, "请求格式不正确")
+        if payload.get("target") not in ("clash", "clashr"):
+            return _resp(0, "净化快照目前仅支持 Clash/mihomo")
+        config_url = str(payload.get("config", "")).strip()
+        if config_url and not re.match(r"^https?://", config_url):
+            return _resp(0, "远程配置地址必须是 http(s) URL")
+        args = {"target": "clash", "url": CLEAN_SUBSCRIPTION_URL, "list": "true"}
+        for key in ("include", "exclude", "rename", "emoji", "udp", "tfo", "xudp", "sort"):
+            value = payload.get(key)
+            if value not in (None, ""):
+                args[key] = str(value).lower() if isinstance(value, bool) else str(value)
+        try:
+            nodes_status, nodes_text, _ = await self._fetch_subconverter("/sub", urlencode(args))
+            if nodes_status != 200:
+                return _resp(0, f"读取筛选节点失败：HTTP {nodes_status}")
+            node_config = yaml.safe_load(nodes_text)
+            if not isinstance(node_config, dict):
+                return _resp(0, "筛选节点不是有效 YAML")
+            template_args = {"target": "clash", "url": CLEAN_SUBSCRIPTION_URL}
+            if config_url:
+                template_args["config"] = config_url
+            template_status, template_text, _ = await self._fetch_subconverter(
+                "/sub", urlencode(template_args)
+            )
+            if template_status != 200:
+                return _resp(0, f"生成规则配置失败：HTTP {template_status}")
+            template_config = yaml.safe_load(template_text)
+            if not isinstance(template_config, dict):
+                return _resp(0, "规则配置不是有效 YAML")
+            snapshot = self._inline_clean_nodes(template_config, node_config)
+        except (ValueError, yaml.YAMLError) as exc:
+            return _resp(0, f"生成净化快照失败：{exc}")
+        except Exception as exc:
+            return _resp(0, f"生成净化快照失败：{exc}")
+
+        os.makedirs(CLEAN_SNAPSHOT_DIR, exist_ok=True)
+        snapshot_id = uuid.uuid4().hex
+        snapshot_path = os.path.join(CLEAN_SNAPSHOT_DIR, snapshot_id + ".yaml")
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=CLEAN_SNAPSHOT_DIR,
+                                             prefix=".snapshot-", suffix=".tmp", delete=False) as f:
+                yaml.safe_dump(snapshot, f, allow_unicode=True, sort_keys=False)
+                temp_path = f.name
+            os.replace(temp_path, snapshot_path)
+        except Exception as exc:
+            return _resp(0, f"保存净化快照失败：{exc}")
+        proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        return {"Code": 1, "Message": "净化快照已生成", "SnapshotUrl":
+                f"{proto}://{host}/clean-snapshot/{snapshot_id}.yaml",
+                "NodeCount": len(snapshot.get("proxies", []))}
+
+    async def clean_snapshot_get(self, snapshot_id: str):
+        if not re.fullmatch(r"[0-9a-f]{32}", snapshot_id or ""):
+            return Response(status_code=404)
+        path = os.path.join(CLEAN_SNAPSHOT_DIR, snapshot_id + ".yaml")
+        if not os.path.isfile(path):
+            return Response(status_code=404)
+        try:
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+        except OSError:
+            return Response(status_code=404)
+        return Response(content, media_type="text/yaml", headers={
+            "Content-Disposition": "attachment; filename=clean-clash.yaml",
+            "Cache-Control": "no-store",
+        })
 
     # 生成短链接（兼容 myurls 协议）
     async def short_create(self, long_url_b64: str, short_key: str, request: Request):
