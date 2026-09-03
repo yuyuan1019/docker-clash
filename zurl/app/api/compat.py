@@ -6,6 +6,7 @@
 # 不写死任何地址，配合 nginx 反代即可做到“当前访问域名是什么，短链就是什么”。
 import asyncio
 import base64
+import copy
 import json
 import logging
 import os
@@ -54,6 +55,74 @@ def _resp(code: int, message: str, short_url: str = ""):
     return {"Code": code, "Message": message, "ShortUrl": short_url}
 
 
+AI_SERVICE_GROUP = "🤖 AI服务"
+AI_OTHER_GROUP = "🤖 其他AI"
+AI_GEMINI_GROUP = "🤖 Gemini"
+AI_CLAUDE_GROUP = "🤖 Claude"
+CLAUDE_RULESET_URL = (
+    "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Claude/Claude.yaml"
+)
+
+
+def split_ai_services(config: dict) -> int:
+    """把 COCR 模板的 🤖 AI服务 拆成 Gemini / Claude / 其他AI 三组（节点池一致）。
+
+    模板仍从上游 GitHub/jsDelivr 拉取（自动跟随更新），本函数在转换结果上做后处理：
+    - 原 🤖 AI服务 组重命名为 🤖 其他AI，规则引用同步改
+    - 深拷贝出 🤖 Gemini 与 🤖 Claude 两组（use/filter/proxies 与 AI服务 完全一致）
+    - 在 category-ai-!cn 规则之前插入：
+      GEOSITE,google-gemini → Gemini；Claude 域规则集 → Claude（mihomo 运行时解析）
+    模板若已无 AI服务 组（上游改名）则原样返回，不报错。
+    """
+    if not isinstance(config, dict):
+        return 0
+    groups = config.get("proxy-groups")
+    if not isinstance(groups, list):
+        return 0
+    service = next((g for g in groups if isinstance(g, dict) and g.get("name") == AI_SERVICE_GROUP), None)
+    if not isinstance(service, dict):
+        return 0
+
+    service["name"] = AI_OTHER_GROUP
+    rules = config.get("rules")
+    if isinstance(rules, list):
+        config["rules"] = [
+            rule.replace(AI_SERVICE_GROUP, AI_OTHER_GROUP) if isinstance(rule, str) else rule
+            for rule in rules
+        ]
+        # 上面重新赋值了新列表，重新读取供后续插入使用
+        rules = config.get("rules")
+    for group in groups:
+        members = group.get("proxies")
+        if isinstance(members, list):
+            group["proxies"] = [
+                member.replace(AI_SERVICE_GROUP, AI_OTHER_GROUP) if isinstance(member, str) else member
+                for member in members
+            ]
+
+    gemini = copy.deepcopy(service)
+    gemini["name"] = AI_GEMINI_GROUP
+    claude = copy.deepcopy(service)
+    claude["name"] = AI_CLAUDE_GROUP
+    index = groups.index(service) + 1
+    groups[index:index] = [gemini, claude]
+
+    if isinstance(rules, list):
+        ai_index = next(
+            (i for i, rule in enumerate(rules) if isinstance(rule, str) and "category-ai" in rule),
+            None,
+        )
+        if ai_index is not None:
+            insertions = [
+                f"GEOSITE,google-gemini,{AI_GEMINI_GROUP}",
+                f"RULE-SET,{CLAUDE_RULESET_URL},{AI_CLAUDE_GROUP}",
+            ]
+            for offset, rule in enumerate(insertions):
+                if rule not in rules:
+                    rules.insert(ai_index + offset, rule)
+    return 2
+
+
 class CompatAPI:
     @staticmethod
     def _apply_safe_transforms(config: dict) -> None:
@@ -61,6 +130,7 @@ class CompatAPI:
         try:
             append_custom_groups(config)
             apply_group_defaults(config)
+            split_ai_services(config)
         except Exception as exc:
             logging.getLogger("uvicorn.error").warning(
                 "应用自定义组/默认分组失败（已跳过）：%s", exc
