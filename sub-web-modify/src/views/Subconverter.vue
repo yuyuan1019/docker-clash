@@ -388,6 +388,10 @@ const customClashVariants = [
     label: 'Custom_Clash_Full（GitHub 原版）'
   },
   {
+    file: 'Custom_Clash_Fallback.ini',
+    label: 'Custom_Clash_Fallback（故障转移）'
+  },
+  {
     file: 'Custom_Clash_GFW.ini',
     label: 'Custom_Clash_GFW（仅GFW名单）'
   }
