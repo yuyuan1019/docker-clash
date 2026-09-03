@@ -993,7 +993,7 @@ export default {
       if (this.subsCheckRunning) return;
       this.subsCheckRunning = true;
       try {
-        const resp = await this.axios.post(
+        const resp = await this.$axios.post(
           window.location.origin + "/api/trigger-check"
         );
         if (resp.status === 200 && resp.data && resp.data.message) {
@@ -1013,7 +1013,7 @@ export default {
       const started = Date.now();
       const poll = async () => {
         try {
-          const resp = await this.axios.get(window.location.origin + "/api/status");
+          const resp = await this.$axios.get(window.location.origin + "/api/status");
           const s = (resp && resp.data) || {};
           this.subsCheckProgress = {
             total: s.proxyCount || 0,
@@ -1048,7 +1048,7 @@ export default {
     },
     // 页面加载时拉一次状态：若已有检测在跑（含每天定时），也展示进度
     getSubsCheckStatus() {
-      this.axios.get(window.location.origin + "/api/status").then(resp => {
+      this.$axios.get(window.location.origin + "/api/status").then(resp => {
         const s = (resp && resp.data) || {};
         this.subsCheckProgress = {
           total: s.proxyCount || 0,
