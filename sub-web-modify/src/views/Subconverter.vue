@@ -236,10 +236,9 @@
                     type="danger"
                     class="action-btn"
                     icon="el-icon-link"
-                    @click="cleanAndMakeUrl"
-                    :loading="cleanGenerating"
+                    @click="makeUrl"
                     :disabled="sourceSubUrl.length === 0 || btnBoolean"
-                >{{ cleanGenerating ? '净化测速并生成中…' : '净化并生成订阅' }}
+                >生成订阅链接
                 </el-button>
                 <el-button
                     type="danger"
@@ -303,46 +302,9 @@
                     @click="openPanel"
                 >打开面板
                 </el-button>
-                <el-button
-                    type="success"
-                    plain
-                    class="action-btn"
-                    icon="el-icon-magic-stick"
-                    @click="triggerSubsCheck"
-                    :loading="subsCheckRunning"
-                >{{ subsCheckRunning ? '筛选检测中…' : '跑一次筛选' }}
-                </el-button>
-                <el-button
-                    type="warning"
-                    plain
-                    class="action-btn"
-                    icon="el-icon-data-analysis"
-                    @click="openSubsCheckPanel"
-                >节点筛选面板
-                </el-button>
                 <el-tag :type="mihomoStatusTag.type" class="action-btn status-chip" @click="getMihomoStatus">
                   {{ mihomoStatusTag.text }}
                 </el-tag>
-              </el-form-item>
-              <el-form-item v-if="subsCheckRunning || subsCheckProgress.checking || subsCheckDone" class="action-group" label-width="0px">
-                <div class="subscheck-progress">
-                  <div class="subscheck-progress-head">
-                    <span>{{ subsCheckPhaseText }}</span>
-                    <span v-if="subsCheckProgress.total" class="subscheck-progress-counts">
-                      测活 {{ subsCheckProgress.aliveDone }}/{{ subsCheckProgress.total }}
-                      · 流媒体 {{ subsCheckProgress.mediaDone }}/{{ subsCheckProgress.total }}
-                      · 测速 {{ subsCheckProgress.speedDone }}/{{ subsCheckProgress.total }}
-                    </span>
-                  </div>
-                  <el-progress :percentage="subsCheckPercent" :stroke-width="12"></el-progress>
-                  <div v-if="subsCheckDone && subsCheckResult" class="subscheck-result">
-                    <span class="subscheck-result-main">
-                      ✅ 检测完成：共 {{ subsCheckResult.total }} 节点 → 存活 {{ subsCheckResult.alivePass }}
-                      <template v-if="subsCheckResult.nodeCount"> → 筛选订阅 {{ subsCheckResult.nodeCount }} 节点</template>
-                    </span>
-                    <el-button size="mini" type="text" icon="el-icon-data-analysis" @click="openSubsCheckPanel">查看面板</el-button>
-                  </div>
-                </div>
               </el-form-item>
             </el-form>
           </el-container>
@@ -565,8 +527,6 @@ export default {
       formPersistenceReady: false,
       formSaveTimer: null,
       loading3: false,
-      // 「净化并生成订阅」会手动触发 subs-check，完成后请求后端固化静态节点快照。
-      cleanGenerating: false,
       customSubUrl: "",
       customShortSubUrl: "",
       // 记录短链对应的长链，避免修改配置后误导入旧短链。
@@ -580,21 +540,7 @@ export default {
       providersLoading: false,
       myBot: tgBotLink,
       // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
-      xdPanelUrl: window.location.origin + "/xd/",
-      // subs-check 筛选检测运行状态（触发后轮询 status 更新进度）
-      subsCheckRunning: false,
-      subsCheckTimer: null,
-      subsCheckDone: false,
-      subsCheckResult: null,
-      subsCheckProgress: {
-        total: 0,
-        aliveDone: 0,
-        alivePass: 0,
-        mediaDone: 0,
-        speedDone: 0,
-        speedPass: 0,
-        checking: false
-      }
+      xdPanelUrl: window.location.origin + "/xd/"
     };
   },
   computed: {
@@ -619,26 +565,6 @@ export default {
     },
     canImportClash() {
       return this.customSubUrl !== "" && this.form.clientType.startsWith("clash");
-    },
-    // subs-check 检测总进度（测活30% + 流媒体35% + 测速35%）
-    subsCheckPercent() {
-      const p = this.subsCheckProgress;
-      if (!p.checking) return 100;
-      if (!p.total) return 0;
-      const alive = p.aliveDone / p.total;
-      const media = p.mediaDone / p.total;
-      const speed = p.speedDone / p.total;
-      return Math.min(100, Math.round(alive * 30 + media * 35 + speed * 35));
-    },
-    subsCheckPhaseText() {
-      if (this.subsCheckDone) return "检测完成 ✅";
-      const p = this.subsCheckProgress;
-      if (!p.checking) return "检测完成";
-      if (!p.total) return "准备中…";
-      if (p.aliveDone < p.total) return "正在测活（节点存活检测）…";
-      if (p.mediaDone < p.total) return "正在流媒体解锁检测…";
-      if (p.speedDone < p.total) return "正在测速…";
-      return "正在收尾…";
     }
   },
   watch: {
@@ -672,10 +598,6 @@ export default {
       clearTimeout(this.formSaveTimer);
       this.formSaveTimer = null;
     }
-    if (this.subsCheckTimer) {
-      clearInterval(this.subsCheckTimer);
-      this.subsCheckTimer = null;
-    }
   },
   mounted() {
     this.form.clientType = "clash";
@@ -686,7 +608,6 @@ export default {
     this.getMihomoStatus();
     this.statusTimer = setInterval(this.getMihomoStatus, 30000);
     this.loadSavedProviders();
-    this.getSubsCheckStatus();
     this.anhei();
     let lightMedia = window.matchMedia('(prefers-color-scheme: light)');
     let darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1000,109 +921,6 @@ export default {
     openPanel() {
       window.open(this.xdPanelUrl, "_blank", "noopener");
     },
-    // subs-check：手动触发一次节点筛选检测（测活/测速/流媒体解锁）
-    // 鉴权由 nginx 注入 X-API-Key（与 MIHOMO_SECRET 一致），前端无需持有密钥
-    async triggerSubsCheck() {
-      if (this.subsCheckRunning) return;
-      this.subsCheckRunning = true;
-      this.subsCheckDone = false;
-      this.subsCheckResult = null;
-      try {
-        const resp = await this.$axios.post(
-          window.location.origin + "/api/trigger-check"
-        );
-        if (resp.status === 200 && resp.data && resp.data.message) {
-          this.$message.success(resp.data.message + "，可在下方查看进度");
-          this.pollSubsCheckStatus();
-        } else {
-          throw new Error("unexpected response");
-        }
-      } catch (e) {
-        this.$message.error("触发筛选检测失败：" + (e.message || e));
-        this.subsCheckRunning = false;
-      }
-    },
-    // 轮询 subs-check /api/status 更新进度；checking 由 true→false 视为一轮结束
-    pollSubsCheckStatus() {
-      if (this.subsCheckTimer) clearInterval(this.subsCheckTimer);
-      const started = Date.now();
-      let sawChecking = false;
-      const poll = async () => {
-        try {
-          const resp = await this.$axios.get(window.location.origin + "/api/status");
-          const s = (resp && resp.data) || {};
-          this.subsCheckProgress = {
-            total: s.proxyCount || 0,
-            aliveDone: (s.pipeline && s.pipeline.aliveDone) || 0,
-            alivePass: (s.pipeline && s.pipeline.alivePass) || 0,
-            mediaDone: (s.pipeline && s.pipeline.mediaDone) || 0,
-            speedDone: (s.pipeline && s.pipeline.speedDone) || 0,
-            speedPass: (s.pipeline && s.pipeline.speedPass) || 0,
-            checking: !!s.checking
-          };
-          if (s.checking) sawChecking = true;
-          // 只有确实经历了一次进行中（避免触发瞬间误判完成）才在结束时展示结果
-          if (!s.checking && sawChecking) {
-            clearInterval(this.subsCheckTimer);
-            this.subsCheckTimer = null;
-            this.subsCheckRunning = false;
-            this.subsCheckDone = true;
-            this.fetchSubsCheckResult(s);
-            this.$message.success("节点筛选完成，结果已更新到筛选订阅");
-            return;
-          }
-          if (Date.now() - started > 15 * 60 * 1000) {
-            clearInterval(this.subsCheckTimer);
-            this.subsCheckTimer = null;
-            this.subsCheckRunning = false;
-            this.$message.warning("筛选检测超时未结束，请到节点筛选面板查看");
-          }
-        } catch (e) {
-          clearInterval(this.subsCheckTimer);
-          this.subsCheckTimer = null;
-          this.subsCheckRunning = false;
-        }
-      };
-      poll();
-      this.subsCheckTimer = setInterval(poll, 5000);
-    },
-    // 完成时抓取最终统计 + 筛选订阅实际节点数
-    fetchSubsCheckResult(s) {
-      const base = {
-        total: s.proxyCount || 0,
-        alivePass: (s.pipeline && s.pipeline.alivePass) || 0,
-        nodeCount: 0
-      };
-      this.subsCheckResult = base;
-      this.$axios.get(window.location.origin + "/scsub/all.yaml", {responseType: "text"})
-        .then(resp => {
-          const text = resp.data || "";
-          const count = (text.match(/^\s+name:/gm) || []).length;
-          this.subsCheckResult = Object.assign({}, base, {nodeCount: count});
-        })
-        .catch(() => {});
-    },
-    // 页面加载时拉一次状态：若已有检测在跑（含每天定时），也展示进度
-    getSubsCheckStatus() {
-      this.$axios.get(window.location.origin + "/api/status").then(resp => {
-        const s = (resp && resp.data) || {};
-        this.subsCheckProgress = {
-          total: s.proxyCount || 0,
-          aliveDone: (s.pipeline && s.pipeline.aliveDone) || 0,
-          alivePass: (s.pipeline && s.pipeline.alivePass) || 0,
-          mediaDone: (s.pipeline && s.pipeline.mediaDone) || 0,
-          speedDone: (s.pipeline && s.pipeline.speedDone) || 0,
-          speedPass: (s.pipeline && s.pipeline.speedPass) || 0,
-          checking: !!s.checking
-        };
-        if (s.checking && !this.subsCheckTimer) {
-          this.pollSubsCheckStatus();
-        }
-      }).catch(() => {});
-    },
-    openSubsCheckPanel() {
-      window.open(window.location.origin + "/subscheck/", "_blank", "noopener");
-    },
     goToProject() {
       window.open(project);
     },
@@ -1127,65 +945,6 @@ export default {
           : this.customSubUrl;
       window.location.href = "clash://install-config?url=" +
           encodeURIComponent(subscriptionUrl);
-    },
-    async cleanAndMakeUrl() {
-      if (this.sourceSubUrl === "" || this.form.clientType === "") {
-        this.$message.error("订阅链接与客户端为必填项");
-        return;
-      }
-      if (!this.form.clientType.startsWith("clash")) {
-        this.$message.error("净化快照目前仅支持 Clash/mihomo，请改选 Clash 后再生成");
-        return;
-      }
-      if (this.cleanGenerating || this.subsCheckRunning) {
-        this.$message.warning("已有筛选检测正在进行，请等待完成");
-        return;
-      }
-      this.cleanGenerating = true;
-      this.customShortSubUrl = "";
-      this.shortUrlSource = "";
-      try {
-        // 显式点击才触发：会拉取当前表单内的机场并测速，绝不会周期自动执行。
-        await this.triggerSubsCheck();
-        const started = Date.now();
-        let sawChecking = false;
-        let finalStatus = null;
-        while (Date.now() - started < 15 * 60 * 1000) {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          const resp = await this.$axios.get(window.location.origin + "/api/status");
-          const status = (resp && resp.data) || {};
-          if (status.checking) sawChecking = true;
-          if (sawChecking && !status.checking) {
-            finalStatus = status;
-            break;
-          }
-        }
-        if (!finalStatus) throw new Error("筛选检测超时，请到节点筛选面板确认结果");
-        const payload = {
-          target: this.form.clientType,
-          config: this.form.remoteConfig,
-          include: this.form.includeRemarks,
-          exclude: this.form.excludeRemarks,
-          rename: this.form.rename,
-          emoji: this.form.emoji,
-          udp: this.form.udp,
-          tfo: this.form.tfo,
-          xudp: this.form.xudp,
-          sort: this.form.sort
-        };
-        const generated = await this.$axios.post(window.location.origin + "/clean-snapshot", payload);
-        const data = (generated && generated.data) || {};
-        if (data.Code !== 1 || !data.SnapshotUrl) {
-          this.$message.error("净化快照生成失败：" + (data.Message || "未知错误"));
-          throw new Error(data.Message || "静态净化订阅生成失败");
-        }
-        this.customSubUrl = data.SnapshotUrl;
-        this.$message.success("净化测速完成，已生成含 " + (data.NodeCount || 0) + " 个节点的静态订阅");
-      } catch (e) {
-        this.$message.error("净化并生成失败：" + (e.message || e));
-      } finally {
-        this.cleanGenerating = false;
-      }
     },
     makeUrl() {
       if (this.sourceSubUrl === "" || this.form.clientType === "") {
@@ -1654,46 +1413,6 @@ export default {
 }
 .action-group .el-button + .el-button {
   margin-left: 0;
-}
-/* subs-check 筛选检测进度区 */
-.subscheck-progress {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid rgba(128, 128, 128, 0.35);
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.06);
-}
-.subscheck-progress-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px 12px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-.subscheck-progress-counts {
-  color: #888;
-  font-variant-numeric: tabular-nums;
-}
-[data-theme="dark"] .subscheck-progress-counts,
-.dark .subscheck-progress-counts {
-  color: #9aa3b2;
-}
-.subscheck-result {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 12px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(128, 128, 128, 0.3);
-}
-.subscheck-result-main {
-  font-size: 13px;
-  font-weight: 600;
-  color: #67c23a;
 }
 .action-group-primary {
   margin-top: 42px;

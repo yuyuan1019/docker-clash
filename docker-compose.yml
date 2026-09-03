@@ -20,8 +20,6 @@ services:
     environment:
       # 供 default.conf.template envsubst 注入 /short 的内部令牌
       ZURL_SHORT_TOKEN: "${ZURL_SHORT_TOKEN:-}"
-      # 注入 subs-check API 的 X-API-Key（与其 api-key 一致，密钥不下发浏览器）
-      MIHOMO_SECRET: "${MIHOMO_SECRET:-}"
     volumes:
       - ./nginx/templates:/etc/nginx/templates:ro
     depends_on:
@@ -87,8 +85,6 @@ services:
       - ./config/mihomo:/mihomo-config
       # Docker 控制接口（启停 mihomo 容器用）
       - /var/run/docker.sock:/var/run/docker.sock
-      # subs-check 输出目录（只读）：清洗 null 字段后生成净化快照
-      - /volume1/docker/subs-check/output:/subs-check-output:ro
     # 如需访问 zurl 自带管理后台（非必需），取消注释：
     # ports:
     #   - "3080:3080"
@@ -121,23 +117,6 @@ services:
       DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
     depends_on:
       - mihomo
-    networks:
-      - clash-net
-
-  # ---------- 节点质量检测（subs-check）----------
-  # 订阅测活/测速/流媒体解锁筛选；输出 all.yaml 供订阅转换使用。
-  # 不对外暴露端口，统一经 clash-nginx 反代访问（/subscheck/ 面板、/scsub/ 订阅）。
-  # api-key 与 MIHOMO_SECRET 一致；数据目录 /volume1/docker/subs-check/
-  subs-check:
-    image: ghcr.io/beck-8/subs-check:latest
-    container_name: subs-check
-    restart: unless-stopped
-    environment:
-      TZ: Asia/Shanghai
-      API_KEY: "${MIHOMO_SECRET:-yuan}"
-    volumes:
-      - /volume1/docker/subs-check/config:/app/config
-      - /volume1/docker/subs-check/output:/app/output
     networks:
       - clash-net
 
