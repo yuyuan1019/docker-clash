@@ -87,6 +87,8 @@ services:
       - ./config/mihomo:/mihomo-config
       # Docker 控制接口（启停 mihomo 容器用）
       - /var/run/docker.sock:/var/run/docker.sock
+      # subs-check 输出目录（只读）：清洗 null 字段后生成净化快照
+      - /volume1/docker/subs-check/output:/subs-check-output:ro
     # 如需访问 zurl 自带管理后台（非必需），取消注释：
     # ports:
     #   - "3080:3080"

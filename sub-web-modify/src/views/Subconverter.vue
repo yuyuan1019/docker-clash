@@ -1176,6 +1176,7 @@ export default {
         const generated = await this.$axios.post(window.location.origin + "/clean-snapshot", payload);
         const data = (generated && generated.data) || {};
         if (data.Code !== 1 || !data.SnapshotUrl) {
+          this.$message.error("净化快照生成失败：" + (data.Message || "未知错误"));
           throw new Error(data.Message || "静态净化订阅生成失败");
         }
         this.customSubUrl = data.SnapshotUrl;
