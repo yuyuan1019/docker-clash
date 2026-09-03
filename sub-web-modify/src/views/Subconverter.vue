@@ -323,7 +323,7 @@
                   {{ mihomoStatusTag.text }}
                 </el-tag>
               </el-form-item>
-              <el-form-item v-if="subsCheckRunning || subsCheckProgress.checking" class="action-group" label-width="0px">
+              <el-form-item v-if="subsCheckRunning || subsCheckProgress.checking || subsCheckDone" class="action-group" label-width="0px">
                 <div class="subscheck-progress">
                   <div class="subscheck-progress-head">
                     <span>{{ subsCheckPhaseText }}</span>
@@ -334,6 +334,13 @@
                     </span>
                   </div>
                   <el-progress :percentage="subsCheckPercent" :stroke-width="12"></el-progress>
+                  <div v-if="subsCheckDone && subsCheckResult" class="subscheck-result">
+                    <span class="subscheck-result-main">
+                      ✅ 检测完成：共 {{ subsCheckResult.total }} 节点 → 存活 {{ subsCheckResult.alivePass }}
+                      <template v-if="subsCheckResult.nodeCount"> → 筛选订阅 {{ subsCheckResult.nodeCount }} 节点</template>
+                    </span>
+                    <el-button size="mini" type="text" icon="el-icon-data-analysis" @click="openSubsCheckPanel">查看面板</el-button>
+                  </div>
                 </div>
               </el-form-item>
             </el-form>
@@ -574,6 +581,8 @@ export default {
       // subs-check 筛选检测运行状态（触发后轮询 status 更新进度）
       subsCheckRunning: false,
       subsCheckTimer: null,
+      subsCheckDone: false,
+      subsCheckResult: null,
       subsCheckProgress: {
         total: 0,
         aliveDone: 0,
@@ -619,6 +628,7 @@ export default {
       return Math.min(100, Math.round(alive * 30 + media * 35 + speed * 35));
     },
     subsCheckPhaseText() {
+      if (this.subsCheckDone) return "检测完成 ✅";
       const p = this.subsCheckProgress;
       if (!p.checking) return "检测完成";
       if (!p.total) return "准备中…";
@@ -992,6 +1002,8 @@ export default {
     async triggerSubsCheck() {
       if (this.subsCheckRunning) return;
       this.subsCheckRunning = true;
+      this.subsCheckDone = false;
+      this.subsCheckResult = null;
       try {
         const resp = await this.$axios.post(
           window.location.origin + "/api/trigger-check"
@@ -1007,10 +1019,11 @@ export default {
         this.subsCheckRunning = false;
       }
     },
-    // 轮询 subs-check /api/status 更新进度；checking 变 false 视为一轮结束
+    // 轮询 subs-check /api/status 更新进度；checking 由 true→false 视为一轮结束
     pollSubsCheckStatus() {
       if (this.subsCheckTimer) clearInterval(this.subsCheckTimer);
       const started = Date.now();
+      let sawChecking = false;
       const poll = async () => {
         try {
           const resp = await this.$axios.get(window.location.origin + "/api/status");
@@ -1024,10 +1037,14 @@ export default {
             speedPass: (s.pipeline && s.pipeline.speedPass) || 0,
             checking: !!s.checking
           };
-          if (!s.checking) {
+          if (s.checking) sawChecking = true;
+          // 只有确实经历了一次进行中（避免触发瞬间误判完成）才在结束时展示结果
+          if (!s.checking && sawChecking) {
             clearInterval(this.subsCheckTimer);
             this.subsCheckTimer = null;
             this.subsCheckRunning = false;
+            this.subsCheckDone = true;
+            this.fetchSubsCheckResult(s);
             this.$message.success("节点筛选完成，结果已更新到筛选订阅");
             return;
           }
@@ -1045,6 +1062,22 @@ export default {
       };
       poll();
       this.subsCheckTimer = setInterval(poll, 5000);
+    },
+    // 完成时抓取最终统计 + 筛选订阅实际节点数
+    fetchSubsCheckResult(s) {
+      const base = {
+        total: s.proxyCount || 0,
+        alivePass: (s.pipeline && s.pipeline.alivePass) || 0,
+        nodeCount: 0
+      };
+      this.subsCheckResult = base;
+      this.$axios.get(window.location.origin + "/scsub/all.yaml", {responseType: "text"})
+        .then(resp => {
+          const text = resp.data || "";
+          const count = (text.match(/^\s+name:/gm) || []).length;
+          this.subsCheckResult = Object.assign({}, base, {nodeCount: count});
+        })
+        .catch(() => {});
     },
     // 页面加载时拉一次状态：若已有检测在跑（含每天定时），也展示进度
     getSubsCheckStatus() {
@@ -1584,6 +1617,21 @@ export default {
 [data-theme="dark"] .subscheck-progress-counts,
 .dark .subscheck-progress-counts {
   color: #9aa3b2;
+}
+.subscheck-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(128, 128, 128, 0.3);
+}
+.subscheck-result-main {
+  font-size: 13px;
+  font-weight: 600;
+  color: #67c23a;
 }
 .action-group-primary {
   margin-top: 42px;
