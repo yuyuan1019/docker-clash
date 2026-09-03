@@ -95,6 +95,33 @@ docker compose restart nginx
 登录 Cookie 使用 HttpOnly，默认有效 10 年（由 `WEB_AUTH_TTL` 调整）；访问 `/logout` 可退出登录。修改 `MIHOMO_SECRET` 会立即使所有旧登录失效。
 `/subapi/` 订阅转换结果和 `/s/` 短链接始终公开，确保代理客户端可以自动更新；首页、面板、Clash 控制 API 和管理操作只在开关开启时要求登录。
 
+### 节点质量筛选（subs-check）
+
+内置 [subs-check](https://github.com/beck-8/subs-check)（服务名 `subs-check`，仅内网，不暴露端口）：
+对机场订阅做 测活 → 流媒体解锁检测（Netflix/Disney/ChatGPT/YouTube/IP 风险等）→ 测速，
+只保留达标节点，输出「筛选订阅」。检测频率默认每天一次（`config.yaml` 的 `check-interval`，
+单轮约消耗 0.5GB 机场流量）。
+
+**推荐工作流：先筛选、再转换**
+
+1. 订阅转换页点「跑一次筛选」→ 按钮下方实时显示进度条（测活/流媒体/测速三阶段计数，
+   每 5 秒轮询，页面加载时若定时检测正在跑也会直接展示）
+2. 「订阅链接」填筛选订阅地址 `http://服务器IP:7788/scsub/all.yaml` → 选规则模板 → 生成/应用
+3. 「节点筛选面板」可打开 subs-check 管理界面（首次输入密钥 `MIHOMO_SECRET` 保存，可看日志/改配置）
+
+路径与鉴权（nginx 统一入口）：
+
+| 路径 | 用途 | 鉴权 |
+|---|---|---|
+| `/scsub/all.yaml`（及 `/scsub/` 下其他输出） | 筛选订阅，供订阅转换/OpenClash 拉取 | 免登录（客户端需自动更新） |
+| `/subscheck/` | subs-check Web 管理面板 | 网关登录墙 |
+| `/api/...` | subs-check API（页面按钮调用） | 登录墙 + nginx 注入 `X-API-Key` |
+
+配置与数据：`/volume1/docker/subs-check/config/config.yaml`（订阅链接 `sub-urls` 在此维护，
+改完 `docker restart subs-check` 生效）、`/volume1/docker/subs-check/output/`（all.yaml/mihomo.yaml/base64.txt）。
+subs-check 的 `api-key` 与 `.env` 的 `MIHOMO_SECRET` 一致（compose 注入 `API_KEY`，
+nginx 注入 `X-API-Key`，密钥不出现在前端）。
+
 ### 运维操作
 
 ```bash
@@ -119,6 +146,9 @@ http://域名/apply    → 只生成 mihomo 候选配置 latest.yaml（POST，�
 http://域名/s/xxxx   → zurl 短链 302 解析跳转
 http://域名/xd/      → metacubexd 官方面板镜像（nginx 适配 /xd/ 子路径）
 http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
+http://域名/scsub/   → subs-check 筛选订阅输出（免登录，all.yaml 等）
+http://域名/subscheck/ → subs-check 节点筛选管理面板（登录墙内）
+http://域名/api/     → subs-check API（nginx 注入 X-API-Key，密钥不下发浏览器）
 ```
 
 技术要点：
@@ -160,6 +190,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 | `config/mihomo/config.yaml` | mihomo 内核配置 |
 | `config/zurl/transform.example.yaml` | 转换增强层配置模板（复制到 `data/zurl/transform.yaml` 生效） |
 | `data/` | 运行数据（zurl sqlite/redis、mihomo 缓存、网页表单自动保存） |
+| `/volume1/docker/subs-check/` | subs-check 数据目录（config/config.yaml 订阅与参数、output/ 筛选结果），不入库 |
 
 ## 🔧 对上游项目的修改清单
 
@@ -176,6 +207,12 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   - 后端地址/短链在恢复自动保存表单时自动跟随当前访问域名（内外网交替访问后自动替换，外部自定义后端保留）
   - 操作按钮重排：首行 生成订阅链接/生成短链接/从URL解析/一键导入 Clash（统一尺寸）；
     「生成最新配置」+「切换当前配置」合并为「更新并应用配置」；mihomo 按钮按状态显示开启/关闭
+  - 远程配置新增自托管选项 `Custom_Clash_BiliHK（哔哩哔哩港台）`：基于 COCR Custom_Clash.ini，
+    新增 `📺 哔哩哔哩` 策略组（默认直连，可切香港/台湾解锁港台限定番剧）与 `GEOSITE,bilibili` 规则
+    （置于 geosite:cn 兜底之前）；模板自托管于容器 `/usr/share/nginx/html/configs/`，
+    经内网 `http://sub-web/configs/` 供 SubConverter 拉取（`Dockerfile` 已加入 configs 拷贝）
+  - 新增「跑一次筛选」「节点筛选面板」按钮：调用 subs-check 对订阅做测活/流媒体解锁/测速筛选；
+    按钮下方实时进度条（轮询 `/api/status` 三阶段计数），页面加载时自动拉取检测状态
   - `Dockerfile` 增加 `NPM_CONFIG_REGISTRY` 构建参数；补充 `.dockerignore`
 - **zurl**
   - 新增 `app/api/compat.py`：myurls 风格 `POST /short`（base64 longUrl + 可选 shortKey），
@@ -209,3 +246,4 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 | [mihomo](https://github.com/MetaCubeX/mihomo) | Clash.Meta 代理内核 |
 | [metacubexd](https://github.com/MetaCubeX/metacubexd) | 官方 Web 面板 |
 | [Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules) | 默认远程配置 / 规则集 |
+| [subs-check](https://github.com/beck-8/subs-check) | 节点质量筛选（测活/流媒体解锁/测速） |
