@@ -93,6 +93,16 @@ async def compat_short_create(request: Request, longUrl: str = Form(...), shortK
 async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
     return await compatAPI.apply_to_mihomo(sub_url=subUrl, request=request)
 
+# 生成和读取「净化并生成」的静态 Clash 节点快照。
+# POST 受网关登录与内部令牌保护；GET 保持免登录，供 Clash/OpenClash 直接订阅。
+@router.post("/clean-snapshot")
+async def clean_snapshot_create(request: Request):
+    return await compatAPI.clean_snapshot_create(request=request)
+
+@router.get("/clean-snapshot/{snapshot_id}.yaml")
+async def clean_snapshot_get(snapshot_id: str):
+    return await compatAPI.clean_snapshot_get(snapshot_id=snapshot_id)
+
 # nginx 将普通 /subapi/sub 定点转到这里，其余 SubConverter API 保持直连。
 @router.get("/subapi-compat/sub")
 async def compat_subscription(request: Request):

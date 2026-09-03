@@ -236,9 +236,10 @@
                     type="danger"
                     class="action-btn"
                     icon="el-icon-link"
-                    @click="makeUrl"
+                    @click="cleanAndMakeUrl"
+                    :loading="cleanGenerating"
                     :disabled="sourceSubUrl.length === 0 || btnBoolean"
-                >生成订阅链接
+                >{{ cleanGenerating ? '净化测速并生成中…' : '净化并生成订阅' }}
                 </el-button>
                 <el-button
                     type="danger"
@@ -564,6 +565,8 @@ export default {
       formPersistenceReady: false,
       formSaveTimer: null,
       loading3: false,
+      // 「净化并生成订阅」会手动触发 subs-check，完成后请求后端固化静态节点快照。
+      cleanGenerating: false,
       customSubUrl: "",
       customShortSubUrl: "",
       // 记录短链对应的长链，避免修改配置后误导入旧短链。
@@ -1124,6 +1127,64 @@ export default {
           : this.customSubUrl;
       window.location.href = "clash://install-config?url=" +
           encodeURIComponent(subscriptionUrl);
+    },
+    async cleanAndMakeUrl() {
+      if (this.sourceSubUrl === "" || this.form.clientType === "") {
+        this.$message.error("订阅链接与客户端为必填项");
+        return;
+      }
+      if (!this.form.clientType.startsWith("clash")) {
+        this.$message.error("净化快照目前仅支持 Clash/mihomo，请改选 Clash 后再生成");
+        return;
+      }
+      if (this.cleanGenerating || this.subsCheckRunning) {
+        this.$message.warning("已有筛选检测正在进行，请等待完成");
+        return;
+      }
+      this.cleanGenerating = true;
+      this.customShortSubUrl = "";
+      this.shortUrlSource = "";
+      try {
+        // 显式点击才触发：会拉取当前表单内的机场并测速，绝不会周期自动执行。
+        await this.triggerSubsCheck();
+        const started = Date.now();
+        let sawChecking = false;
+        let finalStatus = null;
+        while (Date.now() - started < 15 * 60 * 1000) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          const resp = await this.$axios.get(window.location.origin + "/api/status");
+          const status = (resp && resp.data) || {};
+          if (status.checking) sawChecking = true;
+          if (sawChecking && !status.checking) {
+            finalStatus = status;
+            break;
+          }
+        }
+        if (!finalStatus) throw new Error("筛选检测超时，请到节点筛选面板确认结果");
+        const payload = {
+          target: this.form.clientType,
+          config: this.form.remoteConfig,
+          include: this.form.includeRemarks,
+          exclude: this.form.excludeRemarks,
+          rename: this.form.rename,
+          emoji: this.form.emoji,
+          udp: this.form.udp,
+          tfo: this.form.tfo,
+          xudp: this.form.xudp,
+          sort: this.form.sort
+        };
+        const generated = await this.$axios.post(window.location.origin + "/clean-snapshot", payload);
+        const data = (generated && generated.data) || {};
+        if (data.Code !== 1 || !data.SnapshotUrl) {
+          throw new Error(data.Message || "静态净化订阅生成失败");
+        }
+        this.customSubUrl = data.SnapshotUrl;
+        this.$message.success("净化测速完成，已生成含 " + (data.NodeCount || 0) + " 个节点的静态订阅");
+      } catch (e) {
+        this.$message.error("净化并生成失败：" + (e.message || e));
+      } finally {
+        this.cleanGenerating = false;
+      }
     },
     makeUrl() {
       if (this.sourceSubUrl === "" || this.form.clientType === "") {

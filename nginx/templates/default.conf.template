@@ -142,6 +142,28 @@ server {
         proxy_read_timeout 300s;
     }
 
+    # ---- 静态净化节点快照：POST 生成受登录保护；GET 供客户端实际订阅，免登录 ----
+    location = /clean-snapshot {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
+        limit_except POST { deny all; }
+        proxy_pass http://$zurl_upstream/clean-snapshot$is_args$args;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_set_header X-Short-Token "${ZURL_SHORT_TOKEN}";
+        proxy_read_timeout 300s;
+    }
+    location /clean-snapshot/ {
+        proxy_pass http://$zurl_upstream;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 30s;
+    }
+
     # ---- mihomo 状态查询（GET，供首页状态标签轮询）----
     location = /mihomo/status {
         auth_request /_gateway_auth;
