@@ -224,6 +224,43 @@ server {
         proxy_connect_timeout 60s;
     }
 
+    # ---- 节点质量检测 subs-check：订阅输出（免登录，供 mihomo/OpenClash/订阅转换拉取）----
+    location /scsub/ {
+        rewrite ^/scsub/(.*)$ /sub/$1 break;
+        proxy_pass http://subs-check:8199;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 30s;
+    }
+
+    # ---- 节点质量检测 subs-check：API（admin 面板绝对路径 /api/... + 页面按钮调用）----
+    # 鉴权：nginx 注入与 MIHOMO_SECRET 一致的 X-API-Key，密钥不下发浏览器
+    location /api/ {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
+        proxy_pass http://subs-check:8199;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_set_header X-API-Key "${MIHOMO_SECRET}";
+        proxy_read_timeout 60s;
+    }
+
+    # ---- 节点质量检测 subs-check：Web 面板 + API（经网关登录墙）----
+    # 面板 api-key 与 MIHOMO_SECRET 一致；页面在 localStorage 保存密钥后调用 /api
+    location /subscheck {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
+        rewrite ^/subscheck$ /admin redirect;
+        rewrite ^/subscheck/(.*)$ /$1 break;
+        proxy_pass http://subs-check:8199;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 60s;
+    }
+
     # ---- SubConverter-Extended 后端：/subapi/xxx → :25500/xxx ----
     location /subapi/ {
         # 去掉 /subapi/ 前缀（变量形式的 proxy_pass 需显式 rewrite）
