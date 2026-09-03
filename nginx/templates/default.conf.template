@@ -247,13 +247,24 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # ---- 节点质量检测 subs-check：Web 面板 + API（经网关登录墙）----
-    # 面板 api-key 与 MIHOMO_SECRET 一致；页面在 localStorage 保存密钥后调用 /api
+    # ---- 节点质量检测 subs-check：Web 面板（经网关登录墙）----
+    # /subscheck 与 /subscheck/ 都进 admin 面板；/subscheck/xxx 透传给 subs-check
     location /subscheck {
         auth_request /_gateway_auth;
         error_page 401 = @gateway_login_redirect;
-        rewrite ^/subscheck$ /admin redirect;
-        rewrite ^/subscheck/(.*)$ /$1 break;
+        rewrite ^/subscheck/?$ /admin break;
+        rewrite ^/subscheck/(.+)$ /$1 break;
+        proxy_pass http://subs-check:8199;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $gateway_proto;
+        proxy_read_timeout 60s;
+    }
+
+    # ---- subs-check 面板静态资源（admin.html 引用绝对路径 /static/...）----
+    location /static/ {
+        auth_request /_gateway_auth;
+        error_page 401 = @gateway_login_redirect;
         proxy_pass http://subs-check:8199;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
