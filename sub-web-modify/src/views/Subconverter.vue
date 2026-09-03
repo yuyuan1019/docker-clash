@@ -302,6 +302,23 @@
                     @click="openPanel"
                 >打开面板
                 </el-button>
+                <el-button
+                    type="success"
+                    plain
+                    class="action-btn"
+                    icon="el-icon-magic-stick"
+                    @click="triggerSubsCheck"
+                    :loading="subsCheckRunning"
+                >{{ subsCheckRunning ? '筛选检测中…' : '跑一次筛选' }}
+                </el-button>
+                <el-button
+                    type="warning"
+                    plain
+                    class="action-btn"
+                    icon="el-icon-data-analysis"
+                    @click="openSubsCheckPanel"
+                >节点筛选面板
+                </el-button>
                 <el-tag :type="mihomoStatusTag.type" class="action-btn status-chip" @click="getMihomoStatus">
                   {{ mihomoStatusTag.text }}
                 </el-tag>
@@ -540,7 +557,10 @@ export default {
       providersLoading: false,
       myBot: tgBotLink,
       // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
-      xdPanelUrl: window.location.origin + "/xd/"
+      xdPanelUrl: window.location.origin + "/xd/",
+      // subs-check 筛选检测运行状态（触发后轮询日志判断结束）
+      subsCheckRunning: false,
+      subsCheckTimer: null
     };
   },
   computed: {
@@ -597,6 +617,10 @@ export default {
     if (this.formSaveTimer) {
       clearTimeout(this.formSaveTimer);
       this.formSaveTimer = null;
+    }
+    if (this.subsCheckTimer) {
+      clearInterval(this.subsCheckTimer);
+      this.subsCheckTimer = null;
     }
   },
   mounted() {
@@ -920,6 +944,57 @@ export default {
     },
     openPanel() {
       window.open(this.xdPanelUrl, "_blank", "noopener");
+    },
+    // subs-check：手动触发一次节点筛选检测（测活/测速/流媒体解锁）
+    // 鉴权由 nginx 注入 X-API-Key（与 MIHOMO_SECRET 一致），前端无需持有密钥
+    async triggerSubsCheck() {
+      if (this.subsCheckRunning) return;
+      this.subsCheckRunning = true;
+      try {
+        const resp = await this.axios.post(
+          window.location.origin + "/api/trigger-check"
+        );
+        if (resp.status === 200 && resp.data && resp.data.message) {
+          this.$message.success(resp.data.message + "，可在节点筛选面板查看进度");
+          this.pollSubsCheckDone();
+        } else {
+          throw new Error("unexpected response");
+        }
+      } catch (e) {
+        this.$message.error("触发筛选检测失败：" + (e.message || e));
+        this.subsCheckRunning = false;
+      }
+    },
+    // 触发后轮询 subs-check 日志，出现“检测完成”视为结束
+    pollSubsCheckDone() {
+      if (this.subsCheckTimer) clearInterval(this.subsCheckTimer);
+      const started = Date.now();
+      this.subsCheckTimer = setInterval(async () => {
+        try {
+          const resp = await this.axios.get(
+            window.location.origin + "/api/logs"
+          );
+          const text = JSON.stringify(resp.data || {});
+          if (text.indexOf("检测完成") !== -1) {
+            clearInterval(this.subsCheckTimer);
+            this.subsCheckTimer = null;
+            this.subsCheckRunning = false;
+            this.$message.success("节点筛选完成，结果已更新到筛选订阅");
+          } else if (Date.now() - started > 10 * 60 * 1000) {
+            clearInterval(this.subsCheckTimer);
+            this.subsCheckTimer = null;
+            this.subsCheckRunning = false;
+            this.$message.warning("筛选检测超时未结束，请到节点筛选面板查看");
+          }
+        } catch (e) {
+          clearInterval(this.subsCheckTimer);
+          this.subsCheckTimer = null;
+          this.subsCheckRunning = false;
+        }
+      }, 15000);
+    },
+    openSubsCheckPanel() {
+      window.open(window.location.origin + "/subscheck/", "_blank", "noopener");
     },
     goToProject() {
       window.open(project);
