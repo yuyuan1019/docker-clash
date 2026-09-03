@@ -95,7 +95,7 @@
               </el-form-item>
               <el-form-item label="订阅命名:">
                 <el-input v-model="form.filename" @input="onFilenameInput"
-                          placeholder="留空自动填写：单订阅=提供商名，多订阅=合集；修改提供商名称会自动同步"/>
+                          placeholder="留空自动填写：单订阅=提供商名，多订阅=合集，自动追加所选远程配置名（如 合集-ACL4SSR_Online）"/>
               </el-form-item>
               <el-form-item class="advanced-section" label-width="0px">
                 <el-collapse>
@@ -607,6 +607,12 @@ export default {
       handler(rows) {
         this.onSubLinksChange(rows);
       }
+    },
+    // 切换远程配置时自动更新订阅命名（如 合集-ACL4SSR_Online）
+    "form.remoteConfig": {
+      handler() {
+        this.autoFilename();
+      }
     }
   },
   created() {
@@ -879,13 +885,23 @@ export default {
     autoFilename() {
       if (!this.filenameAuto) return;
       const valid = this.form.subLinks.filter(r => (r.url || "").trim() !== "");
+      const cfgName = this.remoteConfigName();
+      const suffix = cfgName ? "-" + cfgName : "";
       if (valid.length === 1) {
-        this.form.filename = (valid[0].name || "").trim().replace(/[,|<>]/g, "");
+        this.form.filename = (valid[0].name || "").trim().replace(/[,|<>]/g, "") + suffix;
       } else if (valid.length >= 2) {
-        this.form.filename = "合集";
+        this.form.filename = "合集" + suffix;
       } else {
         this.form.filename = "";
       }
+    },
+    // 从所选远程配置 URL 中提取模板名（去掉路径与 .ini 后缀）
+    remoteConfigName() {
+      const url = (this.form.remoteConfig || "").trim();
+      if (!url) return "";
+      const base = url.split("?")[0];
+      const name = base.substring(base.lastIndexOf("/") + 1);
+      return name.replace(/\.ini$/i, "");
     },
     onFilenameInput() {
       // 手动修改后不再自动覆盖；清空输入框则恢复自动命名
