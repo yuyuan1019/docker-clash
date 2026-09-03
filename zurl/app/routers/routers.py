@@ -73,6 +73,12 @@ async def sub_links(request: Request):
 async def index(request: Request):
     return await indexAPI.index(request=request)
 
+# 净化节点源：清洗 null 字段后的 subs-check 输出（仅容器内网，供 subconverter 拉取）。
+# 必须定义在 GET /{short_url} 通配路由之前，否则会被当作短链名吞掉返回 404。
+@router.get("/clean-snapshot-nodes")
+async def clean_snapshot_nodes():
+    return await compatAPI.clean_snapshot_nodes()
+
 # 短链接跳转
 @router.get("/{short_url}")
 @router.head("/{short_url}")

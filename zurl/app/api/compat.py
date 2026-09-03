@@ -51,7 +51,14 @@ MIHOMO_SECRET = os.environ.get("MIHOMO_SECRET", "yuan")
 # 「净化并生成」产出的静态快照：每个地址仅包含当次筛选成功的节点，
 # 不含原始机场链接或 /scsub/all.yaml provider。
 CLEAN_SNAPSHOT_DIR = os.environ.get("CLEAN_SNAPSHOT_DIR", "/opt/zurl/app/data/clean-snapshots")
-CLEAN_SUBSCRIPTION_URL = os.environ.get("CLEAN_SUBSCRIPTION_URL", "http://subs-check:8199/sub/all.yaml")
+# subs-check 的输出文件（只读挂载）。subconverter 的 Go bridge 会拒绝显式 null
+# 字段（如 `flow:`），因此不直接喂 all.yaml，而是经 /clean-snapshot-nodes 清洗。
+CLEAN_NODES_SOURCE_FILE = os.environ.get(
+    "CLEAN_NODES_SOURCE_FILE", "/subs-check-output/all.yaml"
+)
+CLEAN_SUBSCRIPTION_URL = os.environ.get(
+    "CLEAN_SUBSCRIPTION_URL", "http://zurl:3080/clean-snapshot-nodes"
+)
 
 def _resp(code: int, message: str, short_url: str = ""):
     # 前端按 res.data.Code === 1 && res.data.ShortUrl !== "" 判断成功，
@@ -151,6 +158,17 @@ class CompatAPI:
         )
 
     @staticmethod
+    def _strip_none_fields(proxies: list) -> list:
+        """subs-check 偶尔输出 `flow:`（YAML null）字段；Go bridge 对显式 null
+        的 string 字段校验失败。剔除 None 值字段，不影响语义。"""
+        cleaned = []
+        for proxy in proxies:
+            if isinstance(proxy, dict):
+                proxy = {k: v for k, v in proxy.items() if v is not None}
+            cleaned.append(proxy)
+        return cleaned
+
+    @staticmethod
     def _inline_clean_nodes(template: dict, nodes: dict) -> dict:
         """把 SubConverter 的 provider 配置固化为当次筛选节点快照。
 
@@ -190,6 +208,38 @@ class CompatAPI:
         template["proxies"] = clean_nodes
         return template
 
+    @staticmethod
+    def _sanitize_nodes_yaml(text: str) -> str:
+        """读取 subs-check 的 all.yaml，剔除显式 null 字段后重新序列化。
+
+        subs-check 偶尔产出 `flow:`（null）这类空字段，subconverter 的
+        mihomo Go bridge 对 string 字段的 null 校验会直接报错（HTTP 400）。
+        """
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict) or not isinstance(data.get("proxies"), list):
+            raise ValueError("筛选输出中没有 proxies 列表")
+        cleaned = []
+        for proxy in data["proxies"]:
+            if isinstance(proxy, dict):
+                proxy = {k: v for k, v in proxy.items() if v is not None}
+            cleaned.append(proxy)
+        data["proxies"] = cleaned
+        return yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+
+    async def clean_snapshot_nodes(self):
+        """供 subconverter 拉取的净化节点源：内网端点，null 字段已清洗。"""
+        try:
+            with open(CLEAN_NODES_SOURCE_FILE, encoding="utf-8") as file:
+                text = self._sanitize_nodes_yaml(file.read())
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            return Response(
+                f"净化节点源不可用：{exc}", status_code=502, media_type="text/plain"
+            )
+        return Response(text, media_type="text/yaml", headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": "attachment; filename=clean-nodes.yaml",
+        })
+
     async def clean_snapshot_create(self, request: Request):
         """生成一个不可自动更新的、内嵌净化节点的 Clash 快照订阅。"""
         if SHORT_TOKEN and request.headers.get("x-short-token", "") != SHORT_TOKEN:
@@ -217,6 +267,7 @@ class CompatAPI:
             node_config = yaml.safe_load(nodes_text)
             if not isinstance(node_config, dict):
                 return _resp(0, "筛选节点不是有效 YAML")
+            node_config["proxies"] = self._strip_none_fields(node_config.get("proxies") or [])
             template_args = {"target": "clash", "url": CLEAN_SUBSCRIPTION_URL}
             if config_url:
                 template_args["config"] = config_url
