@@ -1,4 +1,5 @@
 from fastapi import APIRouter,Form, Request, Depends, UploadFile, File
+from fastapi.responses import PlainTextResponse
 from app.api.index import IndexAPI
 from app.api.option import OptionAPI
 from app.api.sys import SysAPI
@@ -61,6 +62,11 @@ async def gateway_save_sub_provider(request: Request):
 @router.post("/gateway/sub-providers/delete")
 async def gateway_delete_sub_provider(request: Request):
     return await subProviderAPI.delete_provider(request)
+
+# 订阅转换页面表单中的当前订阅链接（供 subs-check 的 sub-urls-remote 动态读取）
+@router.get("/sub-links")
+async def sub_links(request: Request):
+    return PlainTextResponse(gateway_auth.sub_links_for_subscheck())
 
 # 首页
 @router.get("/")
