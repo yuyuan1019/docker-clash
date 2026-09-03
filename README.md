@@ -143,10 +143,6 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   如需追加自定义组，可在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`）
   的 `custom_groups` 中自行定义，修改保存后下次转换即生效，无需重建/重启容器。
   机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名。
-- **AI 分流自动拆分**：COCR 模板里的 `🤖 AI服务` 组会在转换结果上自动拆为
-  `🤖 Gemini` / `🤖 Claude` / `🤖 其他AI` 三组（节点池与原 AI服务 完全一致），并在
-  `category-ai-!cn` 兜底规则之前插入对应规则（Gemini 用 `GEOSITE,google-gemini`，
-  Claude 用 blackmatrix7 域规则集）。模板本身仍跟随 GitHub 更新，拆分在 zurl 后处理完成。
 - 默认不调整任何分组的默认选中项，保持远程模板原样（mihomo select 组首项即默认）；
   如需置顶指定分组的默认项，可在 `data/zurl/transform.yaml` 的 `group_defaults` 中
   自行配置（模板：`config/zurl/transform.example.yaml`），同样支持热加载。
