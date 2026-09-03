@@ -1,5 +1,4 @@
 from fastapi import APIRouter,Form, Request, Depends, UploadFile, File
-from fastapi.responses import PlainTextResponse
 from app.api.index import IndexAPI
 from app.api.option import OptionAPI
 from app.api.sys import SysAPI
@@ -63,21 +62,10 @@ async def gateway_save_sub_provider(request: Request):
 async def gateway_delete_sub_provider(request: Request):
     return await subProviderAPI.delete_provider(request)
 
-# 订阅转换页面表单中的当前订阅链接（供 subs-check 的 sub-urls-remote 动态读取）
-@router.get("/sub-links")
-async def sub_links(request: Request):
-    return PlainTextResponse(gateway_auth.sub_links_for_subscheck())
-
 # 首页
 @router.get("/")
 async def index(request: Request):
     return await indexAPI.index(request=request)
-
-# 净化节点源：清洗 null 字段后的 subs-check 输出（仅容器内网，供 subconverter 拉取）。
-# 必须定义在 GET /{short_url} 通配路由之前，否则会被当作短链名吞掉返回 404。
-@router.get("/clean-snapshot-nodes")
-async def clean_snapshot_nodes():
-    return await compatAPI.clean_snapshot_nodes()
 
 # 短链接跳转
 @router.get("/{short_url}")
@@ -98,16 +86,6 @@ async def compat_short_create(request: Request, longUrl: str = Form(...), shortK
 @router.post("/apply")
 async def compat_apply_to_mihomo(request: Request, subUrl: str = Form(...)):
     return await compatAPI.apply_to_mihomo(sub_url=subUrl, request=request)
-
-# 生成和读取「净化并生成」的静态 Clash 节点快照。
-# POST 受网关登录与内部令牌保护；GET 保持免登录，供 Clash/OpenClash 直接订阅。
-@router.post("/clean-snapshot")
-async def clean_snapshot_create(request: Request):
-    return await compatAPI.clean_snapshot_create(request=request)
-
-@router.get("/clean-snapshot/{snapshot_id}.yaml")
-async def clean_snapshot_get(snapshot_id: str):
-    return await compatAPI.clean_snapshot_get(snapshot_id=snapshot_id)
 
 # nginx 将普通 /subapi/sub 定点转到这里，其余 SubConverter API 保持直连。
 @router.get("/subapi-compat/sub")

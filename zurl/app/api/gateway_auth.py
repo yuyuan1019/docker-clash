@@ -9,32 +9,7 @@ from collections import defaultdict, deque
 from urllib.parse import quote
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
-
-
-def sub_links_for_subscheck() -> str:
-    """从订阅转换页面保存的表单中提取当前订阅链接，供 subs-check 的
-    sub-urls-remote 动态读取（订阅链接会变更，不能写死在 subs-check 配置里）。"""
-    if not os.path.isfile(FORM_CONFIG_FILE):
-        return ""
-    try:
-        with open(FORM_CONFIG_FILE, encoding="utf-8") as file:
-            data = json.load(file)
-        sub_links = (data or {}).get("form", {}).get("subLinks", []) or []
-        lines = []
-        for item in sub_links:
-            if not isinstance(item, dict):
-                continue
-            url = str(item.get("url", "")).strip()
-            if not url:
-                continue
-            name = str(item.get("name", "")).strip()
-            if name:
-                lines.append(f"# {name}")
-            lines.append(url)
-        return "\n".join(lines) + ("\n" if lines else "")
-    except Exception:
-        return ""
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 
 WEB_AUTH_KEY = os.environ.get("MIHOMO_SECRET", "")
