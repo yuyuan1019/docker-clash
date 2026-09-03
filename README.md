@@ -107,8 +107,11 @@ docker compose restart nginx
 1. 订阅转换页点「跑一次筛选」→ 按钮下方实时显示进度条（测活/流媒体/测速三阶段计数，
    每 5 秒轮询，页面加载时若定时检测正在跑也会直接展示）；完成后进度卡驻留显示
    「✅ 共 N 节点 → 存活 X → 筛选订阅 M 节点」结果摘要
-2. 「订阅链接」填筛选订阅地址 `http://服务器IP:7788/scsub/all.yaml` → 选规则模板 → 生成/应用
+2. 「订阅链接」填筛选订阅地址 `http://服务器IP:7788/scsub/all.yaml`（本仓库默认已把页面订阅链接指向此处，
+   生成后为指向该地址的 proxy-provider，每小时自动刷新净化节点）→ 选规则模板 → 生成/应用
 3. 「节点筛选面板」可打开 subs-check 管理界面（首次输入密钥 `MIHOMO_SECRET` 保存，可看日志/改配置）
+4. 订阅链接是**动态**的：subs-check 从 zurl `/sub-links` 接口读取订阅转换页面表单里保存的订阅，
+   在页面改订阅后下次检测自动跟随（subs-check `config.yaml` 仅保留 `sub-urls-remote: http://zurl:3080/sub-links`）
 
 路径与鉴权（nginx 统一入口）：
 
