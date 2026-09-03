@@ -62,6 +62,7 @@ AI_CLAUDE_GROUP = "🤖 Claude"
 CLAUDE_RULESET_URL = (
     "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Claude/Claude.yaml"
 )
+CLAUDE_PROVIDER = "Claude_AI"
 
 
 def split_ai_services(config: dict) -> int:
@@ -113,9 +114,21 @@ def split_ai_services(config: dict) -> int:
             None,
         )
         if ai_index is not None:
+            # Claude 规则集注册为 rule-provider（mihomo 不支持规则里内联 RULE-SET URL）
+            providers = config.setdefault("rule-providers", {})
+            if not isinstance(providers, dict):
+                providers = {}
+                config["rule-providers"] = providers
+            providers[CLAUDE_PROVIDER] = {
+                "type": "http",
+                "behavior": "domain",
+                "url": CLAUDE_RULESET_URL,
+                "path": f"./providers/{CLAUDE_PROVIDER}.yaml",
+                "interval": 86400,
+            }
             insertions = [
                 f"GEOSITE,google-gemini,{AI_GEMINI_GROUP}",
-                f"RULE-SET,{CLAUDE_RULESET_URL},{AI_CLAUDE_GROUP}",
+                f"RULE-SET,{CLAUDE_PROVIDER},{AI_CLAUDE_GROUP}",
             ]
             for offset, rule in enumerate(insertions):
                 if rule not in rules:
