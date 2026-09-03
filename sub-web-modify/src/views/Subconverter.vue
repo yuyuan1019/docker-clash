@@ -95,7 +95,7 @@
               </el-form-item>
               <el-form-item label="订阅命名:">
                 <el-input v-model="form.filename" @input="onFilenameInput"
-                          placeholder="留空自动填写：单订阅=提供商名，多订阅=合集，自动追加所选远程配置名（如 合集-ACL4SSR_Online）"/>
+                          placeholder="留空自动填写：单订阅=提供商名，多订阅=合集，自动追加所选远程配置名（如 合集-Custom_Clash_Full）"/>
               </el-form-item>
               <el-form-item class="advanced-section" label-width="0px">
                 <el-collapse>
@@ -388,32 +388,8 @@ const customClashVariants = [
     label: 'Custom_Clash_Full（GitHub 原版）'
   },
   {
-    file: 'Custom_Clash_Lite.ini',
-    label: 'Custom_Clash_Lite（精简）'
-  },
-  {
     file: 'Custom_Clash_GFW.ini',
     label: 'Custom_Clash_GFW（仅GFW名单）'
-  },
-  {
-    file: 'Custom_Clash_Mainland.ini',
-    label: 'Custom_Clash_Mainland（回国）'
-  },
-  {
-    file: 'Custom_Clash_Fallback.ini',
-    label: 'Custom_Clash_Fallback（故障转移）'
-  },
-  {
-    file: 'Custom_Clash_Full_Fallback.ini',
-    label: 'Custom_Clash_Full_Fallback（全规则+故障转移）'
-  },
-  {
-    file: 'Custom_Clash_Lite_Fallback.ini',
-    label: 'Custom_Clash_Lite_Fallback（精简+故障转移）'
-  },
-  {
-    file: 'Custom_Clash_GFW_Fallback.ini',
-    label: 'Custom_Clash_GFW_Fallback（GFW+故障转移）'
   }
 ]
 
@@ -425,28 +401,6 @@ function buildCustomClashOptions() {
     })
     return options
   }, [])
-}
-// ACL4SSR 远程配置（GitHub: ACL4SSR/ACL4SSR，模板位于 Clash/config/）
-const acl4ssrConfigBase = 'https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/'
-const acl4ssrUrl = name => acl4ssrConfigBase + name
-const acl4ssrVariants = [
-  {file: 'ACL4SSR_Online.ini', label: 'ACL4SSR_Online（默认推荐）'},
-  {file: 'ACL4SSR_Online_Full.ini', label: 'ACL4SSR_Online_Full（全量规则）'},
-  {file: 'ACL4SSR_Online_Mini.ini', label: 'ACL4SSR_Online_Mini（精简）'},
-  {file: 'ACL4SSR_Online_AdblockPlus.ini', label: 'ACL4SSR_Online_AdblockPlus（去广告）'},
-  {file: 'ACL4SSR_Online_NoReject.ini', label: 'ACL4SSR_Online_NoReject（不去广告）'},
-  {file: 'ACL4SSR_Online_NoAuto.ini', label: 'ACL4SSR_Online_NoAuto（手动选择）'},
-  {file: 'ACL4SSR_Online_MultiCountry.ini', label: 'ACL4SSR_Online_MultiCountry（多国）'},
-  {file: 'ACL4SSR_Online_Full_Netflix.ini', label: 'ACL4SSR_Online_Full_Netflix（奈飞）'},
-  {file: 'ACL4SSR_Online_Mini_Ai.ini', label: 'ACL4SSR_Online_Mini_Ai（AI 分流）'},
-  {file: 'ACL4SSR_Online_Full_MultiMode.ini', label: 'ACL4SSR_Online_Full_MultiMode（全量+多模式）'}
-]
-
-function buildAcl4ssrOptions() {
-  return acl4ssrVariants.map(variant => ({
-    label: variant.label,
-    value: acl4ssrUrl(variant.file)
-  }))
 }
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
@@ -494,10 +448,6 @@ export default {
           {
             label: "Custom_Clash（OpenClash/mihomo）",
             options: buildCustomClashOptions()
-          },
-          {
-            label: "ACL4SSR",
-            options: buildAcl4ssrOptions()
           }
         ]
       },
@@ -608,7 +558,7 @@ export default {
         this.onSubLinksChange(rows);
       }
     },
-    // 切换远程配置时自动更新订阅命名（如 合集-ACL4SSR_Online）
+    // 切换远程配置时自动更新订阅命名（如 合集-Custom_Clash_Full）
     "form.remoteConfig": {
       handler() {
         this.autoFilename();
