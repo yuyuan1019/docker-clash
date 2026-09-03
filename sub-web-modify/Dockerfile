@@ -22,8 +22,5 @@ RUN yarn build
 # --- Runtime stage ---
 FROM nginx:1.24-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-# 本地自托管订阅转换配置模板（供 SubConverter 后端按 config= 参数直接拉取，
-# 走 sub-web 容器内网 80 端口，不经过网关认证）
-COPY --from=build /app/configs /usr/share/nginx/html/configs
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

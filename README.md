@@ -46,8 +46,8 @@ docker compose up -d
 3. 「订阅链接」处每行填一组：**提供商名称**（可选，如 `机场A`）+ 订阅链接；
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
-4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Fallback/GFW 等变体，
-   另有自托管 Custom_Clash_BiliHK 哔哩哔哩港台版）；Lite/Mainland 及其余 Fallback 变体、ACL4SSR 系列已移除
+4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Fallback/GFW 等变体）；
+   Lite/Mainland 及其余 Fallback 变体、ACL4SSR 系列、自托管 BiliHK 版均已移除
    （COCR 默认模板已覆盖这些场景）。Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
 5. 「订阅命名」紧跟「远程配置」之后默认展示：留空自动填（单订阅=提供商名，多订阅=`合集`，并自动追加所选远程配置名，如 `合集-Custom_Clash_Full`；切换远程配置会自动同步）；「更新间隔」默认 7 天
 6. 首行操作按钮：点「生成订阅链接」→ 得到定制订阅长链；再点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`；
