@@ -36,7 +36,7 @@ group_defaults:
 custom_groups:
   - name: "🎬 流媒体"
     filter: "流媒体"
-    type: select
+    type: url-test
     attach_after: "🇺🇸 美国节点"
     attach_to:
       - "📹 YouTube"
@@ -54,6 +54,6 @@ custom_groups:
   # 仅挂入 🚀 手动选择；Fallback 变体默认不修改（其故障转移组不动，组在 Fallback 下为未挂载的孤立组）
   - name: "📡 电信优化"
     filter: "(新加坡|SG|日本|JP).*(电信|CT(CUCM|CU|CM))"
-    type: select
+    type: url-test
     attach_to:
       - "🚀 手动选择"
