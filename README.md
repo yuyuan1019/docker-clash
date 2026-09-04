@@ -158,10 +158,10 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 - 当前 `custom_groups` 追加的节点组：
-  - `🎬 流媒体`（节点名含「流媒体」，type=select），
+  - `🎬 流媒体`（节点名含「流媒体」，type=url-test 自动测速选优），
     挂入 YouTube / TikTok / Netflix / DisneyPlus / HBO / PrimeVideo / AppleTV+ / Emby / Spotify / Bahamut / 国外媒体 的可选列表；
     其中 YouTube / TikTok 默认「🇺🇸 美国节点」、**第二顺位即 🎬 流媒体**（`attach_after`，Fallback 变体中即故障转移的第二备份）。
-  - `📡 电信优化`（新加坡/日本 电信优化线路，filter=`(新加坡|SG|日本|JP).*(电信|CT(CUCM|CU|CM))`），
+  - `📡 电信优化`（新加坡/日本 电信优化线路，type=url-test 自动测速选优，filter=`(新加坡|SG|日本|JP).*(电信|CT(CUCM|CU|CM))`），
     仅挂入 🚀 手动选择（Fallback 变体默认不修改，其组不挂载任何位置）。
   `attach_after` 仅对 `attach_to` 目标组生效，锚点成员不存在时退化为追加末尾。
 
