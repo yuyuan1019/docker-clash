@@ -50,3 +50,10 @@ custom_groups:
       - "🎻 Spotify"
       - "📺 Bahamut"
       - "🌎 国外媒体"
+  # 电信优化：新加坡/日本 的电信/联通/移动 优化线路（节点名形如「新加坡 电信CT」）
+  - name: "📡 电信优化"
+    filter: "(新加坡|SG|日本|JP).*(电信|CT(CUCM|CU|CM))"
+    type: select
+    attach_to:
+      - "🚀 手动选择"
+      - "🚀 故障转移"
