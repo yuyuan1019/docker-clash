@@ -17,11 +17,12 @@ group_defaults:
   - {group: "⏬ PT站点", default: "🎯 全球直连"}
 
   # ---- 2026-09-04 服务分流默认出口 ----
-  # AI / 谷歌系 → 新加坡节点
+  # AI 服务 → 新加坡节点
   - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
   - {group: "🤖 AI服务", default: "🇸🇬 新加坡节点"}
-  - {group: "🇬 谷歌服务", default: "🇸🇬 新加坡节点"}
-  - {group: "📢 谷歌FCM", default: "🇸🇬 新加坡节点"}
+  # 谷歌系 → 美国节点
+  - {group: "🇬 谷歌服务", default: "🇺🇸 美国节点"}
+  - {group: "📢 谷歌FCM", default: "🇺🇸 美国节点"}
   # TikTok / YouTube → 美国节点
   - {group: "🎶 TikTok", default: "🇺🇸 美国节点"}
   - {group: "📹 YouTube", default: "🇺🇸 美国节点"}
@@ -29,6 +30,8 @@ group_defaults:
   - {group: "Ⓜ️ 微软服务", default: "🚀 手动选择"}
   - {group: "🍎 苹果服务", default: "🚀 手动选择"}
   - {group: "🚀 测速工具", default: "🚀 手动选择"}
+  # 手动选择 → 默认香港节点
+  - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
 
 # 自定义节点组：节点名含「流媒体」的节点聚成一组，供 YouTube / TikTok 等
 # 媒体服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
