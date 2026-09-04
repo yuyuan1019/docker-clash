@@ -146,6 +146,15 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
 - 默认不调整任何分组的默认选中项，保持远程模板原样（mihomo select 组首项即默认）；
   如需置顶指定分组的默认项，可在 `data/zurl/transform.yaml` 的 `group_defaults` 中
   自行配置（模板：`config/zurl/transform.example.yaml`），同样支持热加载。
+  对全部远程配置变体（Custom_Clash / _Full / _Fallback / _GFW）统一生效：
+  `_Fallback` 的 fallback 组同样把目标组置为第一顺位（主节点）；目标组在模板中
+  不存在时跳过、不插入悬空引用。
+- 当前 `group_defaults` 生效的服务分流默认出口（2026-09-04 起）：
+  ChatGPT / AI服务 / 谷歌服务 / 谷歌FCM → 🇸🇬 新加坡节点；
+  TikTok / YouTube → 🇺🇸 美国节点；
+  微软服务 / 苹果服务 / 测速工具 → 🚀 手动选择
+  （注：`_Fallback` 变体无「🚀 手动选择」组，后三者在该变体中保持 🎯 全球直连
+  默认，仍为手动可选，仅默认项不受影响）。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
 
