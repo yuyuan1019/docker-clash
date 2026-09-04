@@ -162,7 +162,7 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
     挂入 YouTube / TikTok / Netflix / DisneyPlus / HBO / PrimeVideo / AppleTV+ / Emby / Spotify / Bahamut / 国外媒体 的可选列表；
     其中 YouTube / TikTok 默认「🇺🇸 美国节点」、**第二顺位即 🎬 流媒体**（`attach_after`，Fallback 变体中即故障转移的第二备份）。
   - `📡 电信优化`（新加坡/日本 电信优化线路，filter=`(新加坡|SG|日本|JP).*(电信|CT(CUCM|CU|CM))`），
-    挂入 🚀 手动选择（Fallback 变体为 🚀 故障转移）。
+    仅挂入 🚀 手动选择（Fallback 变体默认不修改，其组不挂载任何位置）。
   `attach_after` 仅对 `attach_to` 目标组生效，锚点成员不存在时退化为追加末尾。
 
 ## 📁 目录说明
