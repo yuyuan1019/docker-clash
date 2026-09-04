@@ -38,4 +38,6 @@ custom_groups: []
 #   filter: "(?i)(iplc|专线)"
 #   type: select              # 可选 select / url-test / fallback / load-balance
 #   attach_to: ["🚀 手动选择"]  # 追加到这些组末尾
+#   attach_after: "🇺🇸 美国节点"  # 可选：在目标组中紧跟该成员插入（需配合先置顶默认项，
+#                                 # 可把自定义组固定为第二顺位）；成员不存在时退化追加末尾
 #   exclusive: false

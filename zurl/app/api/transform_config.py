@@ -92,6 +92,10 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
         ):
             logger.warning("transform 配置组 %s 的 attach_with 不合法，已跳过", name)
             continue
+        attach_after = entry.get("attach_after", "")
+        if not isinstance(attach_after, str):
+            logger.warning("transform 配置组 %s 的 attach_after 不是字符串，已跳过", name)
+            continue
         exclusive = entry.get("exclusive", False)
         if not isinstance(exclusive, bool):
             logger.warning("transform 配置组 %s 的 exclusive 不是布尔值，已跳过", name)
@@ -110,6 +114,7 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
                 "type": group_type,
                 "attach_to": tuple(attach_to),
                 "attach_with": tuple(attach_with),
+                "attach_after": attach_after,
                 "exclusive": exclusive,
                 "keep_in": tuple(keep_in),
             }

@@ -1,10 +1,12 @@
 # 转换增强外置配置（热加载：修改保存后，下一次订阅转换 / 生成最新配置即生效）
 #
 # 说明：
-# - 仅调整分组默认选中项（mihomo select 组首项即默认），不追加任何自定义分组，
-#   转换结果保持远程模板原样
-# - 目标组在模板中不存在时自动跳过（如 Custom_Clash.ini 无 PT站点组），
+# - 调整分组默认选中项（mihomo select 组首项即默认）与追加自定义分组，
+#   转换结果其余部分保持远程模板原样
+# - group_defaults 目标组在模板中不存在时自动跳过（如 Custom_Clash.ini 无 PT站点组），
 #   不会插入悬空引用
+# - custom_groups 按 filter 在 mihomo 运行时筛选节点（机场 provider 形态）或
+#   直接点名静态节点；attach_to 把该组挂进目标分组的可选列表
 # - 对所有远程配置变体（Custom_Clash / _Full / _Fallback / _GFW）统一生效；
 #   _Fallback 的 fallback 组同样把目标组置为第一顺位（主节点）
 
@@ -27,3 +29,24 @@ group_defaults:
   - {group: "Ⓜ️ 微软服务", default: "🚀 手动选择"}
   - {group: "🍎 苹果服务", default: "🚀 手动选择"}
   - {group: "🚀 测速工具", default: "🚀 手动选择"}
+
+# 自定义节点组：节点名含「流媒体」的节点聚成一组，供 YouTube / TikTok 等
+# 媒体服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
+# attach_after=美国节点：紧跟默认项（美国节点）置为第二顺位；无该锚点的组退化追加末尾。
+custom_groups:
+  - name: "🎬 流媒体"
+    filter: "流媒体"
+    type: select
+    attach_after: "🇺🇸 美国节点"
+    attach_to:
+      - "📹 YouTube"
+      - "🎶 TikTok"
+      - "🎥 Netflix"
+      - "🎥 DisneyPlus"
+      - "🎥 HBO"
+      - "🎥 PrimeVideo"
+      - "🎥 AppleTV+"
+      - "🎥 Emby"
+      - "🎻 Spotify"
+      - "📺 Bahamut"
+      - "🌎 国外媒体"
