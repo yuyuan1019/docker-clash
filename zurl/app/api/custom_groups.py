@@ -219,6 +219,13 @@ def append_custom_groups(config: dict, groups=None) -> int:
                 if insert_at >= 0:
                     members.insert(insert_at, name)
                     continue
+            # attach_after：仅对 attach_to 目标组生效，紧跟指定成员后插入
+            # （如紧跟默认项置为第二顺位）；成员不存在时退化为追加末尾
+            # （如 Bahamut 无美国节点）。非目标组不处理。
             if item.get("name") in spec.get("attach_to", ()):
+                after = spec.get("attach_after")
+                if isinstance(after, str) and after and after in members:
+                    members.insert(members.index(after) + 1, name)
+                    continue
                 members.append(name)
     return len(ensured)

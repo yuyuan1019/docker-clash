@@ -57,10 +57,16 @@ def _resp(code: int, message: str, short_url: str = ""):
 class CompatAPI:
     @staticmethod
     def _apply_safe_transforms(config: dict) -> None:
-        """自定义组与默认项属于增强功能：失败只记日志并跳过，不影响订阅生成。"""
+        """自定义组与默认项属于增强功能：失败只记日志并跳过，不影响订阅生成。
+
+        先 apply_group_defaults 再 append_custom_groups：这样 attach_after
+        能紧跟在「已置顶的默认项」之后插入（如 YouTube 默认美国节点、
+        第二顺位流媒体组）。注意：group_defaults 因此不能引用本批追加的
+        自定义组（目标尚未创建时会跳过），当前配置无此依赖。
+        """
         try:
-            append_custom_groups(config)
             apply_group_defaults(config)
+            append_custom_groups(config)
         except Exception as exc:
             logging.getLogger("uvicorn.error").warning(
                 "应用自定义组/默认分组失败（已跳过）：%s", exc

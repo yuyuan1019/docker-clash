@@ -331,6 +331,80 @@ class AppendCustomGroupsTest(unittest.TestCase):
             groups["📹 YouTube"]["proxies"],
         )
 
+    def test_attach_after_places_group_after_anchor_in_targets_only(self):
+        # attach_after：仅对 attach_to 目标组生效，紧跟锚点成员插入
+        # （默认项置顶后即第二顺位）；无锚点的目标组退化为追加末尾；
+        # 非目标组即使含锚点也不处理。
+        streaming_spec = {
+            "name": "🎬 流媒体",
+            "filter": "流媒体",
+            "type": "select",
+            "attach_to": ("📹 YouTube", "🎶 TikTok", "📺 Bahamut"),
+            "attach_with": (),
+            "attach_after": "🇺🇸 美国节点",
+            "exclusive": False,
+            "keep_in": (),
+        }
+        config = {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
+                    "proxies": ["🇺🇸 美国节点", "🚀 手动选择", "♻️ 自动选择"],
+                },
+                {
+                    "name": "🎶 TikTok",
+                    "type": "select",
+                    "proxies": ["🚀 手动选择", "🇺🇸 美国节点", "♻️ 自动选择"],
+                },
+                {
+                    "name": "📺 Bahamut",
+                    "type": "select",
+                    "proxies": ["🇼🇸 台湾节点", "🚀 手动选择", "🎯 全球直连"],
+                },
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["🇺🇸 美国节点", "♻️ 自动选择"],
+                },
+                {
+                    "name": "🇺🇸 美国节点",
+                    "type": "url-test",
+                    "use": ["机场A"],
+                    "filter": "(?i)(美国|US)",
+                },
+            ],
+        }
+
+        self.assertEqual(1, append_custom_groups(config, [streaming_spec]))
+
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # YouTube：紧跟美国节点 → 第二顺位
+        self.assertEqual(
+            ["🇺🇸 美国节点", "🎬 流媒体", "🚀 手动选择", "♻️ 自动选择"],
+            groups["📹 YouTube"]["proxies"],
+        )
+        # TikTok：紧跟美国节点
+        self.assertEqual(
+            ["🚀 手动选择", "🇺🇸 美国节点", "🎬 流媒体", "♻️ 自动选择"],
+            groups["🎶 TikTok"]["proxies"],
+        )
+        # Bahamut：无美国节点 → 追加末尾
+        self.assertEqual(
+            ["🇼🇸 台湾节点", "🚀 手动选择", "🎯 全球直连", "🎬 流媒体"],
+            groups["📺 Bahamut"]["proxies"],
+        )
+        # 非目标组（手动选择）即使含锚点也不插入
+        self.assertEqual(
+            ["🇺🇸 美国节点", "♻️ 自动选择"], groups["🚀 手动选择"]["proxies"]
+        )
+        # 幂等：重复调用不重复插入
+        self.assertEqual(1, append_custom_groups(config, [streaming_spec]))
+        self.assertEqual(1, groups["📹 YouTube"]["proxies"].count("🎬 流媒体"))
+
     def test_group_without_matching_source_is_skipped_and_not_attached(self):
         spec = {
             "name": "IPLC 专线",
