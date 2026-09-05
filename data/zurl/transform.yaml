@@ -33,23 +33,6 @@ group_defaults:
   # 手动选择 → 默认香港节点
   - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
 
-# 自定义节点组：节点名含「流媒体」的节点聚成一组，供 YouTube / TikTok 等
-# 媒体服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
-# attach_after=美国节点：紧跟默认项（美国节点）置为第二顺位；无该锚点的组退化追加末尾。
-custom_groups:
-  - name: "🎬 流媒体"
-    filter: "流媒体"
-    type: url-test
-    attach_after: "🇺🇸 美国节点"
-    attach_to:
-      - "📹 YouTube"
-      - "🎶 TikTok"
-      - "🎥 Netflix"
-      - "🎥 DisneyPlus"
-      - "🎥 HBO"
-      - "🎥 PrimeVideo"
-      - "🎥 AppleTV+"
-      - "🎥 Emby"
-      - "🎻 Spotify"
-      - "📺 Bahamut"
-      - "🌎 国外媒体"
+# 自定义节点组：供服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
+# 如需启用自定义组，在此列表按需声明。
+custom_groups: []
