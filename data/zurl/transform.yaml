@@ -10,28 +10,8 @@
 # - 对所有远程配置变体（Custom_Clash / _Full / _Fallback / _GFW）统一生效；
 #   _Fallback 的 fallback 组同样把目标组置为第一顺位（主节点）
 
-group_defaults:
-  # 非标端口（PT/BT 优化：80/443 以外端口）默认直连
-  - {group: "🔀 非标端口", default: "🎯 全球直连"}
-  # PT 站点默认直连（仅 Custom_Clash_Full 等含 PT站点组的模板生效）
-  - {group: "⏬ PT站点", default: "🎯 全球直连"}
-
-  # ---- 2026-09-04 服务分流默认出口 ----
-  # AI 服务 → 新加坡节点
-  - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
-  - {group: "🤖 AI服务", default: "🇸🇬 新加坡节点"}
-  # 谷歌系 → 美国节点
-  - {group: "🇬 谷歌服务", default: "🇺🇸 美国节点"}
-  - {group: "📢 谷歌FCM", default: "🇺🇸 美国节点"}
-  # TikTok / YouTube → 美国节点
-  - {group: "🎶 TikTok", default: "🇺🇸 美国节点"}
-  - {group: "📹 YouTube", default: "🇺🇸 美国节点"}
-  # 微软 / 苹果 / 测速工具 → 手动选择（不再默认直连或自动）
-  - {group: "Ⓜ️ 微软服务", default: "🚀 手动选择"}
-  - {group: "🍎 苹果服务", default: "🚀 手动选择"}
-  - {group: "🚀 测速工具", default: "🚀 手动选择"}
-  # 手动选择 → 默认香港节点
-  - {group: "🚀 手动选择", default: "🇭🇰 香港节点"}
+# 保持 GitHub 上游远程模板原样，不覆盖调整任何分组默认出口
+group_defaults: []
 
 # 自定义节点组：供服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
 # 如需启用自定义组，在此列表按需声明。
