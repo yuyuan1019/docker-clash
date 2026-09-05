@@ -10,8 +10,9 @@
 # - 对所有远程配置变体（Custom_Clash / _Full / _Fallback / _GFW）统一生效；
 #   _Fallback 的 fallback 组同样把目标组置为第一顺位（主节点）
 
-# 保持 GitHub 上游远程模板原样，不覆盖调整任何分组默认出口
-group_defaults: []
+group_defaults:
+  # 非标端口（除 80/443 外端口）默认全球直连，防止 PT/BT 等大流量直连或连接被代理打断
+  - {group: "🔀 非标端口", default: "🎯 全球直连"}
 
 # 自定义节点组：供服务手动选择（机场 provider 形态按 filter 运行时筛选；静态节点直接点名）。
 # 如需启用自定义组，在此列表按需声明。

@@ -143,9 +143,10 @@ http://域名/clash/   → mihomo Clash API（含 WebSocket，面板连接用）
   如需追加自定义组，可在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`）
   的 `custom_groups` 中自行定义，修改保存后下次转换即生效，无需重建/重启容器。
   机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名。
-- 默认不调整任何分组的默认选中项，保持远程模板原样（mihomo select 组首项即默认）；
-  如需置顶指定分组的默认项，可在 `data/zurl/transform.yaml` 的 `group_defaults` 中
-  自行配置（模板：`config/zurl/transform.example.yaml`），同样支持热加载。
+- 默认保持远程模板原样，仅对指定项按需覆盖默认出口（mihomo select 组首项即默认）：
+  - `🔀 非标端口` → `🎯 全球直连`（避免非 80/443 端口的大流量/下载走代理）。
+  如需调整其他分组，可在 `data/zurl/transform.yaml` 的 `group_defaults` 中
+  自行配置（模板：`config/zurl/transform.example.yaml`），支持热加载。
   对全部远程配置变体（Custom_Clash / _Full / _Fallback / _GFW）统一生效：
   `_Fallback` 的 fallback 组同样把目标组置为第一顺位（主节点）；目标组在模板中
   不存在时跳过、不插入悬空引用。
