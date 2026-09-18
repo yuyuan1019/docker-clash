@@ -250,6 +250,14 @@
                 >生成短链接
                 </el-button>
                 <el-button
+                    type="danger"
+                    class="action-btn"
+                    icon="el-icon-document-copy"
+                    @click="copyFilename"
+                    :disabled="!form.filename"
+                >复制订阅命名
+                </el-button>
+                <el-button
                     type="primary"
                     class="action-btn"
                     icon="el-icon-copy-document"
@@ -354,7 +362,7 @@
         <el-table-column prop="url" label="订阅链接" show-overflow-tooltip></el-table-column>
         <el-table-column label="操作" :width="isPC ? 170 : 150" align="center">
           <template slot-scope="scope">
-            <el-button size="mini" type="primary" plain @click="fillProvider(scope.row); dialogProvidersVisible = false">填入</el-button>
+            <el-button size="mini" type="primary" plain @click="filenameAuto = true; fillProvider(scope.row); dialogProvidersVisible = false">填入</el-button>
             <el-button size="mini" type="danger" plain @click="removeSavedProvider(scope.row)">删除</el-button>
           </template>
         </el-table-column>
@@ -717,7 +725,10 @@ export default {
     onProviderPick(id) {
       const provider = this.savedProviders.find(p => p.id === id);
       this.providerPick = "";
-      if (provider) this.fillProvider(provider);
+      if (provider) {
+        this.filenameAuto = true;
+        this.fillProvider(provider);
+      }
     },
     fillProvider(provider) {
       const url = (provider.url || "").trim();
@@ -852,6 +863,19 @@ export default {
       const base = url.split("?")[0];
       const name = base.substring(base.lastIndexOf("/") + 1);
       return name.replace(/\.ini$/i, "");
+    },
+    copyFilename() {
+      if (!this.form.filename) {
+        this.$message.warning("订阅命名为空");
+        return;
+      }
+      this.$copyText(this.form.filename)
+        .then(() => {
+          this.$message.success("订阅命名已复制到剪贴板");
+        })
+        .catch(() => {
+          this.$message.error("复制失败，请手动复制");
+        });
     },
     onFilenameInput() {
       // 手动修改后不再自动覆盖；清空输入框则恢复自动命名
