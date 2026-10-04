@@ -410,6 +410,26 @@ function buildCustomClashOptions() {
     return options
   }, [])
 }
+// ACL4SSR 远程配置（GitHub: LoveMyself546/ACL4SSR，模板位于 Clash/config/）
+const acl4ssrConfigBase = 'https://testingcf.jsdelivr.net/gh/LoveMyself546/ACL4SSR@master/Clash/config/'
+const acl4ssrUrl = name => acl4ssrConfigBase + name
+const acl4ssrVariants = [
+  {
+    file: 'ACL4SSR_Online_Full.ini',
+    label: 'ACL4SSR_Online_Full（全量规则）'
+  },
+  {
+    file: 'ACL4SSR_Online_Full_AdblockPlus.ini',
+    label: 'ACL4SSR_Online_Full_AdblockPlus（全量+去广告）'
+  }
+]
+
+function buildAcl4ssrOptions() {
+  return acl4ssrVariants.map(variant => ({
+    label: variant.label,
+    value: variant.url || acl4ssrUrl(variant.file)
+  }))
+}
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
 const bzlink = process.env.VUE_APP_BILIBILI_LINK
@@ -456,6 +476,10 @@ export default {
           {
             label: "Custom_Clash（OpenClash/mihomo）",
             options: buildCustomClashOptions()
+          },
+          {
+            label: "ACL4SSR",
+            options: buildAcl4ssrOptions()
           }
         ]
       },
