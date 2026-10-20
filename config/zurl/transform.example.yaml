@@ -28,10 +28,20 @@ group_defaults: []
 # - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
 # - {group: "📹 YouTube", default: "🚀 手动选择"}
 
-# 自定义分组：默认不追加任何组，保持远程模板（GitHub 仓库 cfg 目录的 ini）
-# 原样。如需追加自定义组，可参考下方示例（保存后下次转换即生效）。
+# 默认仅为 Custom_Clash / Custom_Clash_Full 追加两个流媒体组。
+# 不设置 templates 的其他自定义组仍按原逻辑对全部模板生效。
 
-custom_groups: []
+custom_groups:
+  - name: "日本流媒体"
+    filter: "(?:日本.*流媒体|流媒体.*日本)"
+    type: select
+    templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
+    attach_to: ["🎶 TikTok", "📹 YouTube"]
+  - name: "美国流媒体"
+    filter: "(?:美国.*流媒体|流媒体.*美国)"
+    type: select
+    templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
+    attach_to: ["🎶 TikTok", "📹 YouTube"]
 
 # 追加自定义组示例：
 # - name: "IPLC 专线"

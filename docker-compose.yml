@@ -7,7 +7,6 @@ name: docker-clash
 #       http://域名或IP/s/xxxx  → zurl 短链 302 解析跳转
 #       http://域名或IP/xd/     → metacubexd 官方面板
 #       http://域名或IP:9090/   → mihomo Clash API（面板连接用）
-#       7890 端口               → mihomo 混合代理端口
 
 services:
   # ---------- 统一入口网关 ----------
@@ -91,22 +90,6 @@ services:
     networks:
       - clash-net
 
-  # ---------- mihomo 内核 ----------
-  # 使用官方 metacubex/mihomo 代理内核镜像。
-  # 9090 经 nginx /clash/ 路径反代，不直接暴露；
-  # 7890 混合代理端口默认开启，局域网设备可把本机当代理网关（不需要时注释掉即可）。
-  mihomo:
-    image: metacubex/mihomo:latest
-    container_name: mihomo
-    restart: unless-stopped
-    ports:
-      - "${MIXED_PORT:-7890}:7890"     # 混合代理端口（默认开启局域网访问）
-    volumes:
-      - ./config/mihomo/config.yaml:/root/.config/mihomo/config.yaml:ro
-      - ./data/mihomo:/root/.config/mihomo
-    networks:
-      - clash-net
-
   # ---------- 官方 metacubexd 面板（经 nginx /xd/ 路径访问）----------
   metacubexd:
     image: ghcr.io/metacubex/metacubexd:latest
@@ -115,8 +98,6 @@ services:
     environment:
       # 官方镜像仅支持预填后端地址；留空时在面板中手动填写 当前访问地址/clash
       DEFAULT_BACKEND_URL: "${DEFAULT_BACKEND_URL:-}"
-    depends_on:
-      - mihomo
     networks:
       - clash-net
 

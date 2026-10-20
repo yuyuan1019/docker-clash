@@ -2,6 +2,12 @@
 
 一套 docker-compose 即可跑起的自托管 Clash 订阅服务：**订阅转换 → 短链分发 → 配置应用 → 内核运行 → 面板管理** 全链路闭环，在群晖等 NAS 或任意 Docker 主机上几分钟完成部署。
 
+## 当前调整
+
+页面已移除“更新并应用配置”、mihomo 启停、面板入口及状态轮询；Compose 不再运行 mihomo，原配置数据保留。7788 端口、nginx 与群晖反向代理配置不变，其余既有流程保留。
+
+分组继续由 `data/zurl/transform.yaml` 的 `custom_groups` 热加载：新增“日本流媒体”“美国流媒体”，分别匹配同时含“日本/美国”和“流媒体”的节点（顺序不限），并加入 TikTok、YouTube 可选列表。`templates` 仅指定 `Custom_Clash.ini`、`Custom_Clash_Full.ini`；不写 `templates` 的旧配置仍对全部模板生效。可提交的示例见 `config/zurl/transform.example.yaml`。
+
 ## ✨ 特性亮点
 
 - **一键闭环**：网页上填好订阅，「生成订阅链接 → 短链 → 更新并应用配置」，mihomo 内核即刻按新配置运行，全程无需 SSH 登录服务器

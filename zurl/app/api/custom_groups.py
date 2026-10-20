@@ -91,7 +91,7 @@ def _provider_names(config: dict) -> list[str]:
     return [name for name in providers if isinstance(name, str) and name.strip()]
 
 
-def append_custom_groups(config: dict, groups=None) -> int:
+def append_custom_groups(config: dict, groups=None, template_name: str = "") -> int:
     """按外置配置追加自定义选择组，并挂到 attach_to 指定的组末尾。
 
     groups 为 None 时从外置配置文件读取（data/zurl/transform.yaml，热加载，
@@ -113,6 +113,12 @@ def append_custom_groups(config: dict, groups=None) -> int:
         groups = load_custom_groups()
     else:
         groups = tuple(groups)
+
+    # 未指定 templates 的旧配置保持原样；仅按需限制新增组的远程模板范围。
+    groups = tuple(
+        spec for spec in groups
+        if not spec.get("templates") or template_name in spec["templates"]
+    )
 
     providers = _provider_names(config)
     static_names = _static_proxy_names(config)

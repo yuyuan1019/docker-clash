@@ -274,46 +274,7 @@
                 >一键导入 Clash
                 </el-button>
               </el-form-item>
-              <el-form-item class="action-group action-group-secondary" label-width="0px">
-                <el-button
-                    type="warning"
-                    class="action-btn"
-                    icon="el-icon-refresh"
-                    @click="updateAndApplyConfig"
-                    :loading="applying"
-                    :disabled="customSubUrl.length === 0"
-                >更新并应用配置
-                </el-button>
-                <el-button
-                    v-if="mihomoStatus !== true"
-                    type="success"
-                    class="action-btn"
-                    icon="el-icon-video-play"
-                    @click="controlMihomo('start')"
-                    :loading="controlling"
-                >开启 mihomo
-                </el-button>
-                <el-button
-                    v-else
-                    type="info"
-                    class="action-btn"
-                    icon="el-icon-switch-button"
-                    @click="controlMihomo('stop')"
-                    :loading="controlling"
-                >关闭 mihomo
-                </el-button>
-                <el-button
-                    type="primary"
-                    plain
-                    class="action-btn"
-                    icon="el-icon-connection"
-                    @click="openPanel"
-                >打开面板
-                </el-button>
-                <el-tag :type="mihomoStatusTag.type" class="action-btn status-chip" @click="getMihomoStatus">
-                  {{ mihomoStatusTag.text }}
-                </el-tag>
-              </el-form-item>
+
             </el-form>
           </el-container>
         </el-card>
@@ -523,13 +484,6 @@ export default {
         }
       },
       loading1: false,
-      // 生成最新候选配置按钮加载状态
-      applying: false,
-      // 关闭/启动 mihomo 按钮加载状态
-      controlling: false,
-      // mihomo 运行状态：true=运行中 false=已停止 null=未知
-      mihomoStatus: null,
-      statusTimer: null,
       // 订阅命名是否自动管理（用户手动修改后关闭，清空后恢复自动）
       filenameAuto: true,
       formPersistenceReady: false,
@@ -547,8 +501,7 @@ export default {
       dialogProvidersVisible: false,
       providersLoading: false,
       myBot: tgBotLink,
-      // 面板与本站同源部署；直接链接不依赖异步接口，浏览器可稳定打开新标签页。
-      xdPanelUrl: window.location.origin + "/xd/"
+
     };
   },
   computed: {
@@ -565,11 +518,6 @@ export default {
         })
         .filter(s => s !== "")
         .join("|");
-    },
-    mihomoStatusTag() {
-      if (this.mihomoStatus === true) return { text: "mihomo 运行中", type: "success" };
-      if (this.mihomoStatus === false) return { text: "mihomo 已停止", type: "info" };
-      return { text: "mihomo 状态未知", type: "danger" };
     },
     canImportClash() {
       return this.customSubUrl !== "" && this.form.clientType.startsWith("clash");
@@ -604,10 +552,6 @@ export default {
     this.subNameSnapshot = this.form.subLinks.map(r => (r.name || "").trim());
   },
   beforeDestroy() {
-    if (this.statusTimer) {
-      clearInterval(this.statusTimer);
-      this.statusTimer = null;
-    }
     if (this.formSaveTimer) {
       clearTimeout(this.formSaveTimer);
       this.formSaveTimer = null;
@@ -619,8 +563,6 @@ export default {
       this.formPersistenceReady = true;
       this.getBackendVersion();
     });
-    this.getMihomoStatus();
-    this.statusTimer = setInterval(this.getMihomoStatus, 30000);
     this.loadSavedProviders();
     this.anhei();
     let lightMedia = window.matchMedia('(prefers-color-scheme: light)');
@@ -958,9 +900,7 @@ export default {
     onCopy() {
       this.$message.success("已复制");
     },
-    openPanel() {
-      window.open(this.xdPanelUrl, "_blank", "noopener");
-    },
+
     goToProject() {
       window.open(project);
     },
@@ -1118,79 +1058,6 @@ export default {
           .finally(() => {
             this.loading1 = false;
           });
-    },
-    // 一键完成：先生成候选 latest.yaml，成功后自动切换为当前配置并重启/启动 mihomo
-    async updateAndApplyConfig() {
-      if (this.customSubUrl.length === 0) {
-        this.$message.error("请先生成订阅链接");
-        return;
-      }
-      this.applying = true;
-      try {
-        let data = new FormData();
-        data.append("subUrl", this.customSubUrl);
-        let res = await this.$axios.post("/apply", data, { timeout: 200000 });
-        if (res.data.Code !== 1) {
-          this.$message.error("生成最新配置失败：" + res.data.Message);
-          return;
-        }
-        this.$message.success("最新配置已生成，正在切换为当前配置…");
-        res = await this.$axios.post("/mihomo/latest-config", null, { timeout: 60000 });
-        if (res.data.Code === 1) {
-          this.$message.success(res.data.Message);
-        } else {
-          this.$message.error("切换失败：" + res.data.Message);
-        }
-      } catch (e) {
-        this.$message.error("请求失败，请检查网络或稍后再试");
-      } finally {
-        this.applying = false;
-        this.getMihomoStatus();
-      }
-    },
-    getMihomoStatus() {
-      this.$axios
-          .get("/mihomo/status", { timeout: 10000 })
-          .then(res => {
-            if (res.data.Code === 1) {
-              this.mihomoStatus = res.data.Running;
-            } else {
-              this.mihomoStatus = null;
-            }
-          })
-          .catch(() => {
-            this.mihomoStatus = null;
-          });
-    },
-    controlMihomo(action) {
-      const doPost = () => {
-        this.controlling = true;
-        this.$axios
-            .post("/mihomo/" + action, null, { timeout: 60000 })
-            .then(res => {
-              if (res.data.Code === 1) {
-                this.$message.success(res.data.Message);
-              } else {
-                this.$message.error("操作失败：" + res.data.Message);
-              }
-              this.getMihomoStatus();
-            })
-            .catch(() => {
-              this.$message.error("操作请求失败，请检查网络或稍后再试");
-            })
-            .finally(() => {
-              this.controlling = false;
-            });
-      };
-      if (action === "stop") {
-        this.$confirm("确定要关闭 mihomo 吗？代理服务将停止工作，面板也会断开连接。", "提示", {
-          confirmButtonText: "确定关闭",
-          cancelButtonText: "取消",
-          type: "warning"
-        }).then(doPost).catch(() => {});
-      } else {
-        doPost();
-      }
     },
     analyzeUrl() {
       if (this.loadConfig.indexOf("target") !== -1) {
@@ -1457,26 +1324,10 @@ export default {
 .action-group-primary {
   margin-top: 42px;
 }
-.action-group-secondary {
-  margin-top: 4px;
-}
-/* 两行操作按钮统一尺寸 */
+/* 操作按钮统一尺寸 */
 .action-btn {
   width: 170px;
 }
-/* mihomo 运行状态标签：与按钮同高同宽 */
-.status-chip {
-  height: 40px;
-  line-height: 1;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
 /* 移动端适配 */
 @media (max-width: 767px) {
   #app .sub-main-row.el-row:not(.el-row--flex) {
@@ -1511,7 +1362,7 @@ export default {
   .sub-link-del {
     margin-top: 2px;
   }
-  /* 底部操作按钮移动端两列排布、加大触控区域（状态标签同步适配） */
+  /* 底部操作按钮移动端两列排布、加大触控区域 */
   .action-btn {
     width: 46% !important;
     margin: 4px 2% !important;

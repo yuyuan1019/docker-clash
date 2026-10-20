@@ -56,7 +56,7 @@ def _resp(code: int, message: str, short_url: str = ""):
 
 class CompatAPI:
     @staticmethod
-    def _apply_safe_transforms(config: dict) -> None:
+    def _apply_safe_transforms(config: dict, remote_config: str = "") -> None:
         """自定义组与默认项属于增强功能：失败只记日志并跳过，不影响订阅生成。
 
         先 apply_group_defaults 再 append_custom_groups：这样 attach_after
@@ -66,7 +66,8 @@ class CompatAPI:
         """
         try:
             apply_group_defaults(config)
-            append_custom_groups(config)
+            template_name = urlparse(remote_config).path.rsplit("/", 1)[-1]
+            append_custom_groups(config, template_name=template_name)
         except Exception as exc:
             logging.getLogger("uvicorn.error").warning(
                 "应用自定义组/默认分组失败（已跳过）：%s", exc
@@ -137,7 +138,7 @@ class CompatAPI:
 
         fix_region_name_compatibility(config)
         prefix_duplicate_provider_nodes(config)
-        self._apply_safe_transforms(config)
+        self._apply_safe_transforms(config, query_args.get("config", [""])[0])
         # 把 diyua 写入 provider header，防止机场拦截旧 UA。
         error = self._apply_provider_user_agent(config, query_args)
         if error:
@@ -265,7 +266,7 @@ class CompatAPI:
             return _resp(0, "转换结果不是有效的 mihomo 配置")
 
         prefix_duplicate_provider_nodes(new_cfg)
-        self._apply_safe_transforms(new_cfg)
+        self._apply_safe_transforms(new_cfg, query_args.get("config", [""])[0])
 
         # 4. 从当前配置继承局域网设置；候选配置统一使用管理端口与密钥
         old_cfg = {}

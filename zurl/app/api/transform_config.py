@@ -96,6 +96,12 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
         if not isinstance(attach_after, str):
             logger.warning("transform 配置组 %s 的 attach_after 不是字符串，已跳过", name)
             continue
+        templates = entry.get("templates", [])
+        if not isinstance(templates, list) or not all(
+            isinstance(item, str) for item in templates
+        ):
+            logger.warning("transform 配置组 %s 的 templates 不合法，已跳过", name)
+            continue
         exclusive = entry.get("exclusive", False)
         if not isinstance(exclusive, bool):
             logger.warning("transform 配置组 %s 的 exclusive 不是布尔值，已跳过", name)
@@ -115,6 +121,7 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
                 "attach_to": tuple(attach_to),
                 "attach_with": tuple(attach_with),
                 "attach_after": attach_after,
+                "templates": tuple(templates),
                 "exclusive": exclusive,
                 "keep_in": tuple(keep_in),
             }
