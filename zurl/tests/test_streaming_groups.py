@@ -20,7 +20,7 @@ STREAMING_SPECS = [
     {
         "name": country + "流媒体",
         "filter": f"(?:{country}.*流媒体|流媒体.*{country})",
-        "type": "select",
+        "type": "url-test",
         "attach_to": ["🎶 TikTok", "📹 YouTube"],
         "templates": ["Custom_Clash.ini", "Custom_Clash_Full.ini"],
     }
@@ -79,7 +79,7 @@ class StreamingGroupsTest(unittest.TestCase):
                         self.assertEqual(expected, name in groups[service]["proxies"])
                     self.assertNotIn(name, groups["🎥 Netflix"]["proxies"])
                     if expected:
-                        self.assertEqual("select", groups[name]["type"])
+                        self.assertEqual("url-test", groups[name]["type"])
                         self.assertEqual(["Provider_A"], groups[name]["use"])
 
     def test_country_and_streaming_are_both_required_in_either_order(self):

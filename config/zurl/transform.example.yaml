@@ -34,12 +34,12 @@ group_defaults: []
 custom_groups:
   - name: "日本流媒体"
     filter: "(?:日本.*流媒体|流媒体.*日本)"
-    type: select
+    type: url-test
     templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
     attach_to: ["🎶 TikTok", "📹 YouTube"]
   - name: "美国流媒体"
     filter: "(?:美国.*流媒体|流媒体.*美国)"
-    type: select
+    type: url-test
     templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
     attach_to: ["🎶 TikTok", "📹 YouTube"]
 
