@@ -8,6 +8,8 @@
 
 分组继续由 `data/zurl/transform.yaml` 的 `custom_groups` 热加载：新增“日本流媒体”“美国流媒体”，分别匹配同时含“日本/美国”和“流媒体”的节点（顺序不限），并加入 TikTok、YouTube 可选列表。`templates` 仅指定 `Custom_Clash.ini`、`Custom_Clash_Full.ini`；不写 `templates` 的旧配置仍对全部模板生效。可提交的示例见 `config/zurl/transform.example.yaml`。
 
+`data/`、实际 `.env`、订阅地址、密钥和生成配置仅保留在本地，不提交 Git。全新部署可复制 `config/zurl/transform.example.yaml` 到 `data/zurl/transform.yaml`；已有本地文件不要覆盖。
+
 ## ✨ 特性亮点
 
 - **一键闭环**：网页上填好订阅，「生成订阅链接 → 短链 → 更新并应用配置」，mihomo 内核即刻按新配置运行，全程无需 SSH 登录服务器

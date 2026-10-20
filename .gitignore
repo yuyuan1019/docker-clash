@@ -1,17 +1,14 @@
-# 运行数据（zurl sqlite/redis、mihomo 缓存；逐级排除，保留 transform.yaml）
-data/*
-!data/zurl/
-data/zurl/*
-# 转换增强外置配置（分组覆写规则，随仓库管理）
-!data/zurl/transform.yaml
+# 本地运行数据（订阅地址、数据库、缓存及转换配置均不提交；参考 config/ 下的示例）
+data/
 
-# 本地环境变量（含内部令牌，参考 .env.example）
+# 本地环境变量与备份（含内部令牌，参考 .env.example）
 .env
+.env.*
+!.env.example
 
-# mihomo 实际配置（含密钥，参考 config/mihomo/config.example.yaml）
-config/mihomo/config.yaml
-# mihomo 转换生成的最新配置（运行时产物）
-config/mihomo/latest.yaml
+# mihomo 本地配置、生成文件及备份（可能含密钥/订阅地址），只允许脱敏示例
+config/mihomo/*
+!config/mihomo/config.example.yaml
 
 # metacubexd 面板镜像包与解压产物（运行时产物）
 metacubexd-image.tar.gz
