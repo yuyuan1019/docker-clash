@@ -4,50 +4,70 @@
 # /opt/zurl/app/data/transform.yaml，data 目录已挂载进容器）：
 #   cp config/zurl/transform.example.yaml data/zurl/transform.yaml
 #
-# 修改保存后，下一次订阅转换 / 「生成最新配置」即生效，
-# 无需重建或重启任何容器。
+# 修改保存后，下一次订阅转换即生效，无需重建或重启容器。
+# 现有部署请合并需要的配置，不要覆盖无关的自定义项。
 #
 # 规则：
-# - 文件缺失或整份格式错误时，自动回退内置默认（内置默认为空：不追加
-#   任何自定义分组，保持远程模板原样）
-# - 单个条目不合法（正则无效、缺 name/filter 等）时跳过该条，其余继续生效
-# - custom_groups: [] 置空表示完全关闭自定义组
-# - 机场订阅按 filter 在 mihomo 运行时筛选节点；静态节点直接点名进组
-# - exclusive: true 表示该组匹配的节点从其他分组中剔除（业务组/地区组/
-#   手动选择等都不能再选到），只保留在本组和 keep_in 列出的组
+# - 文件缺失或整份格式错误时回退内置默认，不追加自定义分组。
+# - 单个条目不合法（正则无效、缺 name/filter 等）时跳过该条。
+# - custom_groups: [] 表示完全关闭自定义组。
+# - 机场订阅按 filter 在 mihomo 运行时筛选节点；静态节点直接点名进组。
+# - 目标分组或节点不存在时不插入悬空引用。
 
-# 各分组的默认选中项（mihomo select 组首项即默认）：默认不调整，
-# 保持远程模板原样。需要时可按注释示例自行配置（保存后下次转换即生效）。
+# 视频分流默认使用统一流媒体组；非标端口保留直连。
+group_defaults:
+  - {group: "🔀 非标端口", default: "🎯 全球直连"}
+  - {group: "🎶 TikTok", default: "流媒体节点"}
+  - {group: "📹 YouTube", default: "流媒体节点"}
+  - {group: "🎥 Netflix", default: "流媒体节点"}
+  - {group: "🎥 DisneyPlus", default: "流媒体节点"}
+  - {group: "🎥 HBO", default: "流媒体节点"}
+  - {group: "🎥 PrimeVideo", default: "流媒体节点"}
+  - {group: "🎥 AppleTV+", default: "流媒体节点"}
+  - {group: "🎥 Emby", default: "流媒体节点"}
+  - {group: "📺 Bahamut", default: "流媒体节点"}
+  - {group: "🌎 国外媒体", default: "流媒体节点"}
+  # 常用服务与地区策略
+  - {group: "💬 即时通讯", default: "🇭🇰 香港节点"}
+  - {group: "🌐 社交媒体", default: "🇭🇰 香港节点"}
+  - {group: "🚀 GitHub", default: "🇭🇰 香港节点"}
+  - {group: "🎮 Steam", default: "🇭🇰 香港节点"}
+  - {group: "🎮 游戏平台", default: "🇭🇰 香港节点"}
+  - {group: "📢 谷歌FCM", default: "🇸🇬 新加坡节点"}
+  - {group: "🇬 谷歌服务", default: "🇸🇬 新加坡节点"}
+  - {group: "🍎 苹果服务", default: "🚀 手动选择"}
+  - {group: "Ⓜ️ 微软服务", default: "🚀 手动选择"}
+  - {group: "🚀 测速工具", default: "🚀 手动选择"}
+  - {group: "🐟 漏网之鱼", default: "🚀 手动选择"}
 
-group_defaults: []
-
-# 配置示例（需要时取消注释并按需调整；目标在配置中不存在时会跳过，
-# 不会插入悬空引用；实际生效的配置见 data/zurl/transform.yaml）：
-# - {group: "🔀 非标端口", default: "🎯 全球直连"}
-# - {group: "⏬ PT站点", default: "🎯 全球直连"}
-# - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
-# - {group: "📹 YouTube", default: "🚀 手动选择"}
-
-# 默认仅为 Custom_Clash / Custom_Clash_Full 追加两个流媒体组。
-# 不设置 templates 的其他自定义组仍按原逻辑对全部模板生效。
-
+# 名称必须包含“流媒体”，并保守排除常见 TikTok 不可用/受限地区。
+# 按中文、英文、旗帜和地区缩写识别；不是逐节点 TikTok 解锁实测。
+# 黑名单：香港、中国大陆、印度、伊朗、阿富汗、朝鲜、约旦、吉尔吉斯斯坦、
+# 乌兹别克斯坦、塔吉克斯坦、土库曼斯坦、索马里、塞内加尔。
+# 延续 url-test 自动择优；不改变节点原名或其他分流。
+# 保持原有模板范围；未指定 templates 的其他自定义组仍对全部模板生效。
 custom_groups:
-  - name: "日本流媒体"
-    filter: "(?:日本.*流媒体|流媒体.*日本)"
+  - name: "流媒体节点"
+    filter: '(?i)^(?!.*(?:香港|(?:中国|中國)(?![ _-]*(?:台湾|台灣|臺灣|香港|澳门|澳門))|大陆|大陸|内地|內地|印度(?!尼西[亚亞])|伊朗|阿富汗|朝鲜|朝鮮|北韩|北韓|约旦|約旦|吉尔吉斯|吉爾吉斯|乌兹别克|烏茲別克|塔吉克|土库曼|土庫曼|索马里|索馬里|塞内加尔|塞內加爾|Hong[ _-]*Kong|(?:^|[^a-z])China(?![ _-]*(?:Taiwan|Hong[ _-]*Kong|Maca[ou]))(?:[^a-z]|$)|(?:^|[^a-z])India(?:[^a-z]|$)|Iran|Afghanistan|North[ _-]*Korea|Jordan|Kyrgyzstan|Uzbekistan|Tajikistan|Turkmenistan|Somalia|Senegal|🇭🇰|🇨🇳|🇮🇳|🇮🇷|🇦🇫|🇰🇵|🇯🇴|🇰🇬|🇺🇿|🇹🇯|🇹🇲|🇸🇴|🇸🇳|(?:^|[^a-z])(?:hk|hkg|chn|in|ind|ir|irn|af|afg|kp|prk|jo|jor|kg|kgz|uz|uzb|tj|tjk|tm|tkm|so|som|sn|sen|cn(?!2(?:gia|gt)?(?:[^a-z0-9]|$)))(?:[^a-z]|$))).*流媒体.*$'
     type: url-test
     templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
-    attach_to: ["🎶 TikTok", "📹 YouTube"]
-  - name: "美国流媒体"
-    filter: "(?:美国.*流媒体|流媒体.*美国)"
-    type: url-test
-    templates: ["Custom_Clash.ini", "Custom_Clash_Full.ini"]
-    attach_to: ["🎶 TikTok", "📹 YouTube"]
+    attach_to:
+      - "🎶 TikTok"
+      - "📹 YouTube"
+      - "🎥 Netflix"
+      - "🎥 DisneyPlus"
+      - "🎥 HBO"
+      - "🎥 PrimeVideo"
+      - "🎥 AppleTV+"
+      - "🎥 Emby"
+      - "📺 Bahamut"
+      - "🌎 国外媒体"
 
-# 追加自定义组示例：
+# 其他自定义组示例：
 # - name: "IPLC 专线"
 #   filter: "(?i)(iplc|专线)"
-#   type: select              # 可选 select / url-test / fallback / load-balance
-#   attach_to: ["🚀 手动选择"]  # 追加到这些组末尾
-#   attach_after: "🇺🇸 美国节点"  # 可选：在目标组中紧跟该成员插入（需配合先置顶默认项，
-#                                 # 可把自定义组固定为第二顺位）；成员不存在时退化追加末尾
+#   type: select
+#   attach_to: ["🚀 手动选择"]
+#   attach_after: "🇺🇸 美国节点"  # 可选：紧跟指定成员插入
 #   exclusive: false
+#   keep_in: []

@@ -756,6 +756,54 @@ class GroupDefaultsTest(unittest.TestCase):
         self.assertIn("IPLC 专线", groups)
         self.assertEqual(["IPLC 专线"], groups["🚀 手动选择"]["proxies"])
 
+    def test_service_policy_group_defaults(self):
+        defaults = (
+            {"group": "💬 即时通讯", "default": "🇭🇰 香港节点"},
+            {"group": "🌐 社交媒体", "default": "🇭🇰 香港节点"},
+            {"group": "🚀 GitHub", "default": "🇭🇰 香港节点"},
+            {"group": "🎮 Steam", "default": "🇭🇰 香港节点"},
+            {"group": "🎮 游戏平台", "default": "🇭🇰 香港节点"},
+            {"group": "📢 谷歌FCM", "default": "🇸🇬 新加坡节点"},
+            {"group": "🇬 谷歌服务", "default": "🇸🇬 新加坡节点"},
+            {"group": "🍎 苹果服务", "default": "🚀 手动选择"},
+            {"group": "Ⓜ️ 微软服务", "default": "🚀 手动选择"},
+            {"group": "🚀 测速工具", "default": "🚀 手动选择"},
+            {"group": "🐟 漏网之鱼", "default": "🚀 手动选择"},
+        )
+        config = {
+            "proxy-groups": [
+                {"name": "🚀 手动选择", "type": "select", "proxies": ["🇭🇰 香港节点", "🇸🇬 新加坡节点"]},
+                {"name": "🇭🇰 香港节点", "type": "select", "proxies": ["hk1"]},
+                {"name": "🇸🇬 新加坡节点", "type": "select", "proxies": ["sg1"]},
+                {"name": "🎯 全球直连", "type": "select", "proxies": ["DIRECT"]},
+                {"name": "💬 即时通讯", "type": "select", "proxies": ["🚀 手动选择", "🇭🇰 香港节点"]},
+                {"name": "🌐 社交媒体", "type": "select", "proxies": ["🚀 手动选择", "🇭🇰 香港节点"]},
+                {"name": "🚀 GitHub", "type": "select", "proxies": ["🚀 手动选择", "🇭🇰 香港节点"]},
+                {"name": "🎮 Steam", "type": "select", "proxies": ["🎯 全球直连", "🇭🇰 香港节点"]},
+                {"name": "🎮 游戏平台", "type": "select", "proxies": ["🎯 全球直连", "🇭🇰 香港节点"]},
+                {"name": "📢 谷歌FCM", "type": "select", "proxies": ["🚀 手动选择", "🇸🇬 新加坡节点"]},
+                {"name": "🇬 谷歌服务", "type": "select", "proxies": ["🚀 手动选择", "🇸🇬 新加坡节点"]},
+                {"name": "🍎 苹果服务", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
+                {"name": "Ⓜ️ 微软服务", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
+                {"name": "🚀 测速工具", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
+                {"name": "🐟 漏网之鱼", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
+            ]
+        }
+        changed = apply_group_defaults(config, defaults)
+        self.assertEqual(11, changed)
+        by_name = {g["name"]: g["proxies"][0] for g in config["proxy-groups"]}
+        self.assertEqual("🇭🇰 香港节点", by_name["💬 即时通讯"])
+        self.assertEqual("🇭🇰 香港节点", by_name["🌐 社交媒体"])
+        self.assertEqual("🇭🇰 香港节点", by_name["🚀 GitHub"])
+        self.assertEqual("🇭🇰 香港节点", by_name["🎮 Steam"])
+        self.assertEqual("🇭🇰 香港节点", by_name["🎮 游戏平台"])
+        self.assertEqual("🇸🇬 新加坡节点", by_name["📢 谷歌FCM"])
+        self.assertEqual("🇸🇬 新加坡节点", by_name["🇬 谷歌服务"])
+        self.assertEqual("🚀 手动选择", by_name["🍎 苹果服务"])
+        self.assertEqual("🚀 手动选择", by_name["Ⓜ️ 微软服务"])
+        self.assertEqual("🚀 手动选择", by_name["🚀 测速工具"])
+        self.assertEqual("🚀 手动选择", by_name["🐟 漏网之鱼"])
+
 
 if __name__ == "__main__":
     unittest.main()
