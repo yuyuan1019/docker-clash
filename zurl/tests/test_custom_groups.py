@@ -765,6 +765,9 @@ class GroupDefaultsTest(unittest.TestCase):
             {"group": "🎮 游戏平台", "default": "🇭🇰 香港节点"},
             {"group": "📢 谷歌FCM", "default": "🇸🇬 新加坡节点"},
             {"group": "🇬 谷歌服务", "default": "🇸🇬 新加坡节点"},
+            {"group": "🤖 ChatGPT", "default": "🇸🇬 新加坡节点"},
+            {"group": "🤖 AI服务", "default": "🇯🇵 日本节点"},
+            {"group": "🤖 国外AI服务", "default": "🇯🇵 日本节点"},
             {"group": "🍎 苹果服务", "default": "🚀 手动选择"},
             {"group": "Ⓜ️ 微软服务", "default": "🚀 手动选择"},
             {"group": "🚀 测速工具", "default": "🚀 手动选择"},
@@ -783,6 +786,9 @@ class GroupDefaultsTest(unittest.TestCase):
                 {"name": "🎮 游戏平台", "type": "select", "proxies": ["🎯 全球直连", "🇭🇰 香港节点"]},
                 {"name": "📢 谷歌FCM", "type": "select", "proxies": ["🚀 手动选择", "🇸🇬 新加坡节点"]},
                 {"name": "🇬 谷歌服务", "type": "select", "proxies": ["🚀 手动选择", "🇸🇬 新加坡节点"]},
+                {"name": "🤖 ChatGPT", "type": "select", "proxies": ["🚀 手动选择", "🇸🇬 新加坡节点"]},
+                {"name": "🤖 AI服务", "type": "select", "proxies": ["🚀 手动选择", "🇯🇵 日本节点"]},
+                {"name": "🤖 国外AI服务", "type": "select", "proxies": ["🚀 手动选择", "🇯🇵 日本节点"]},
                 {"name": "🍎 苹果服务", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
                 {"name": "Ⓜ️ 微软服务", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
                 {"name": "🚀 测速工具", "type": "select", "proxies": ["🎯 全球直连", "🚀 手动选择"]},
@@ -790,7 +796,7 @@ class GroupDefaultsTest(unittest.TestCase):
             ]
         }
         changed = apply_group_defaults(config, defaults)
-        self.assertEqual(11, changed)
+        self.assertEqual(14, changed)
         by_name = {g["name"]: g["proxies"][0] for g in config["proxy-groups"]}
         self.assertEqual("🇭🇰 香港节点", by_name["💬 即时通讯"])
         self.assertEqual("🇭🇰 香港节点", by_name["🌐 社交媒体"])
@@ -799,6 +805,9 @@ class GroupDefaultsTest(unittest.TestCase):
         self.assertEqual("🇭🇰 香港节点", by_name["🎮 游戏平台"])
         self.assertEqual("🇸🇬 新加坡节点", by_name["📢 谷歌FCM"])
         self.assertEqual("🇸🇬 新加坡节点", by_name["🇬 谷歌服务"])
+        self.assertEqual("🇸🇬 新加坡节点", by_name["🤖 ChatGPT"])
+        self.assertEqual("🇯🇵 日本节点", by_name["🤖 AI服务"])
+        self.assertEqual("🇯🇵 日本节点", by_name["🤖 国外AI服务"])
         self.assertEqual("🚀 手动选择", by_name["🍎 苹果服务"])
         self.assertEqual("🚀 手动选择", by_name["Ⓜ️ 微软服务"])
         self.assertEqual("🚀 手动选择", by_name["🚀 测速工具"])
