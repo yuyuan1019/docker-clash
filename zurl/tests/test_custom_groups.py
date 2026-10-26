@@ -761,15 +761,15 @@ class GroupDefaultsTest(unittest.TestCase):
             {"group": "💬 即时通讯", "default": "🇭🇰 香港节点"},
             {"group": "🌐 社交媒体", "default": "🇭🇰 香港节点"},
             {"group": "🚀 GitHub", "default": "🇭🇰 香港节点"},
-            {"group": "🎮 Steam", "default": "🇭🇰 香港节点"},
-            {"group": "🎮 游戏平台", "default": "🇭🇰 香港节点"},
+            {"group": "🎮 Steam", "default": "🎯 全球直连"},
+            {"group": "🎮 游戏平台", "default": "🎯 全球直连"},
             {"group": "📢 谷歌FCM", "default": "🇸🇬 新加坡节点"},
             {"group": "🇬 谷歌服务", "default": "🇸🇬 新加坡节点"},
             {"group": "🤖 ChatGPT", "default": "🇸🇬 新加坡节点"},
             {"group": "🤖 AI服务", "default": "🇯🇵 日本节点"},
             {"group": "🤖 国外AI服务", "default": "🇯🇵 日本节点"},
-            {"group": "🍎 苹果服务", "default": "🚀 手动选择"},
-            {"group": "Ⓜ️ 微软服务", "default": "🚀 手动选择"},
+            {"group": "🍎 苹果服务", "default": "🎯 全球直连"},
+            {"group": "Ⓜ️ 微软服务", "default": "🎯 全球直连"},
             {"group": "🚀 测速工具", "default": "🚀 手动选择"},
             {"group": "🐟 漏网之鱼", "default": "🚀 手动选择"},
         )
@@ -801,15 +801,15 @@ class GroupDefaultsTest(unittest.TestCase):
         self.assertEqual("🇭🇰 香港节点", by_name["💬 即时通讯"])
         self.assertEqual("🇭🇰 香港节点", by_name["🌐 社交媒体"])
         self.assertEqual("🇭🇰 香港节点", by_name["🚀 GitHub"])
-        self.assertEqual("🇭🇰 香港节点", by_name["🎮 Steam"])
-        self.assertEqual("🇭🇰 香港节点", by_name["🎮 游戏平台"])
+        self.assertEqual("🎯 全球直连", by_name["🎮 Steam"])
+        self.assertEqual("🎯 全球直连", by_name["🎮 游戏平台"])
         self.assertEqual("🇸🇬 新加坡节点", by_name["📢 谷歌FCM"])
         self.assertEqual("🇸🇬 新加坡节点", by_name["🇬 谷歌服务"])
         self.assertEqual("🇸🇬 新加坡节点", by_name["🤖 ChatGPT"])
         self.assertEqual("🇯🇵 日本节点", by_name["🤖 AI服务"])
         self.assertEqual("🇯🇵 日本节点", by_name["🤖 国外AI服务"])
-        self.assertEqual("🚀 手动选择", by_name["🍎 苹果服务"])
-        self.assertEqual("🚀 手动选择", by_name["Ⓜ️ 微软服务"])
+        self.assertEqual("🎯 全球直连", by_name["🍎 苹果服务"])
+        self.assertEqual("🎯 全球直连", by_name["Ⓜ️ 微软服务"])
         self.assertEqual("🚀 手动选择", by_name["🚀 测速工具"])
         self.assertEqual("🚀 手动选择", by_name["🐟 漏网之鱼"])
 
