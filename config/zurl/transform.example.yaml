@@ -34,12 +34,12 @@ group_defaults:
   - {group: "🎮 Steam", default: "🎯 全球直连"}
   - {group: "🎮 游戏平台", default: "🎯 全球直连"}
   - {group: "📢 谷歌FCM", default: "🇸🇬 新加坡节点"}
-  - {group: "🇬 谷歌服务", default: "🇸🇬 新加坡节点"}
-  - {group: "🤖 ChatGPT", default: "🇸🇬 新加坡节点"}
+  - {group: "🇬 谷歌服务", default: "🇺🇸 美国节点"}
+  - {group: "🤖 ChatGPT", default: "🇺🇸 美国节点"}
   - {group: "🤖 AI服务", default: "🇯🇵 日本节点"}
   - {group: "🤖 国外AI服务", default: "🇯🇵 日本节点"}
-  - {group: "🍎 苹果服务", default: "🎯 全球直连"}
-  - {group: "Ⓜ️ 微软服务", default: "🎯 全球直连"}
+  - {group: "🍎 苹果服务", default: "🇺🇸 美国节点"}
+  - {group: "Ⓜ️ 微软服务", default: "🇺🇸 美国节点"}
   - {group: "🚀 测速工具", default: "🚀 手动选择"}
   - {group: "🐟 漏网之鱼", default: "🚀 手动选择"}
 
