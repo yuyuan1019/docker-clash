@@ -512,6 +512,84 @@ class AppendCustomGroupsTest(unittest.TestCase):
         )
 
 
+class AttachIndexTest(unittest.TestCase):
+    """attach_index：把自定义组钉在目标分组的指定顺位（与成员名无关）。"""
+
+    def config(self):
+        return {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
+                    "proxies": ["🚀 手动选择", "♻️ 自动选择", "🇭🇰 香港节点"],
+                },
+                {
+                    "name": "📺 Bahamut",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
+                    "proxies": ["🇼🇸 台湾节点", "🇭🇰 香港节点", "🎯 全球直连"],
+                },
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "proxies": ["♻️ 自动选择", "🇭🇰 香港节点"],
+                },
+            ],
+        }
+
+    def spec(self, **overrides):
+        spec = {
+            "name": "流媒体节点",
+            "filter": "流媒体",
+            "type": "url-test",
+            "attach_index": 1,
+            "attach_to": ("📹 YouTube", "📺 Bahamut"),
+        }
+        spec.update(overrides)
+        return spec
+
+    def test_inserts_at_second_position_regardless_of_first_member(self):
+        config = self.config()
+        self.assertEqual(1, append_custom_groups(config, [self.spec()]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual(
+            ["🚀 手动选择", "流媒体节点", "♻️ 自动选择", "🇭🇰 香港节点"],
+            groups["📹 YouTube"]["proxies"],
+        )
+        # Bahamut 首位不是手动选择，仍然固定在第二顺位
+        self.assertEqual(
+            ["🇼🇸 台湾节点", "流媒体节点", "🇭🇰 香港节点", "🎯 全球直连"],
+            groups["📺 Bahamut"]["proxies"],
+        )
+        # 非目标组不受影响
+        self.assertEqual(
+            ["♻️ 自动选择", "🇭🇰 香港节点"], groups["🚀 手动选择"]["proxies"]
+        )
+
+    def test_idempotent_and_repositions_when_needed(self):
+        config = self.config()
+        append_custom_groups(config, [self.spec()])
+        # 第二次调用不重复插入
+        self.assertEqual(1, append_custom_groups(config, [self.spec()]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual(1, groups["📹 YouTube"]["proxies"].count("流媒体节点"))
+        # 已存在于首位（例如被 group_defaults 提前置顶）时移回第二顺位
+        groups["📹 YouTube"]["proxies"].remove("流媒体节点")
+        groups["📹 YouTube"]["proxies"].insert(0, "流媒体节点")
+        append_custom_groups(config, [self.spec()])
+        self.assertEqual(1, groups["📹 YouTube"]["proxies"].index("流媒体节点"))
+
+    def test_index_beyond_length_appends_at_tail(self):
+        config = self.config()
+        append_custom_groups(config, [self.spec(attach_index=99)])
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual("流媒体节点", groups["📹 YouTube"]["proxies"][-1])
+
+
 class ProviderScopeTest(unittest.TestCase):
     """providers / exclude_providers / exclusive_providers：订阅级节点范围控制。"""
 

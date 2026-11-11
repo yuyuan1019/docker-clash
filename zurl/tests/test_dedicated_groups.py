@@ -45,9 +45,7 @@ TAFFY_OTHER_NODES = (
 
 def transform_settings():
     return {
-        "group_defaults": [
-            *({"group": name, "default": STREAMING_GROUP} for name in VIDEO_SERVICES),
-        ],
+        "group_defaults": [],
         "custom_groups": [
             {
                 "name": STREAMING_GROUP,
@@ -55,6 +53,7 @@ def transform_settings():
                 "type": "url-test",
                 "exclude_providers": [TAFFY_PROVIDER],
                 "exclusive": True,
+                "attach_index": 1,
                 "attach_to": list(VIDEO_SERVICES),
             },
             {
@@ -63,6 +62,7 @@ def transform_settings():
                 "filter": r"(?i)(美国|(?<![a-z])us(?![a-z])|united[ _-]*states|🇺🇸)",
                 "type": "select",
                 "exclusive_providers": [TAFFY_PROVIDER],
+                "attach_index": 1,
                 "attach_to": list(AI_SERVICES),
             },
         ],
@@ -175,10 +175,15 @@ class DedicatedGroupsTest(unittest.TestCase):
                 continue
             self.assertNotIn(TAFFY_GROUP, group.get("proxies", []), name)
 
-    def test_streaming_defaults_are_promoted_in_video_groups(self):
+    def test_groups_sit_in_second_position_not_as_default(self):
+        # 第二顺位：不占默认项，其它订阅没有对应节点时也不会变成空选中
         groups = groups_of(convert())
         for name in VIDEO_SERVICES:
-            self.assertEqual(STREAMING_GROUP, groups[name]["proxies"][0], name)
+            self.assertEqual(1, groups[name]["proxies"].index(STREAMING_GROUP), name)
+            self.assertEqual("🚀 手动选择", groups[name]["proxies"][0], name)
+        for name in AI_SERVICES:
+            self.assertEqual(1, groups[name]["proxies"].index(TAFFY_GROUP), name)
+            self.assertEqual("🚀 手动选择", groups[name]["proxies"][0], name)
 
     def test_other_groups_hide_streaming_nodes_but_keep_provider_nodes(self):
         groups = groups_of(convert())

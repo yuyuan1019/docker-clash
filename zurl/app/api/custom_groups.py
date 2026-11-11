@@ -163,7 +163,8 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
     失败回退内置默认）。机场订阅是 proxy-provider 形态，节点名运行时才可知，
     因此用 filter 在 mihomo 侧筛选；静态节点则直接点名进 proxies。
     attach_with 锚点：包含锚点组（如地区组）的分组会把本组紧跟其后插入，
-    与地区组同可选；attach_to 则是追加到指定组末尾（无锚点时的回退）。
+    与地区组同可选；attach_index 把本组钉死在 attach_to 目标的指定顺位
+    （0=首位，1=第二顺位，与成员名无关）；否则追加到目标组末尾。
     providers / exclude_providers 限定本组挂哪些订阅的节点。
     exclusive 条目会把匹配节点从其他组剔除：显式列表直接移除，provider 组在
     filter 前加负向前瞻（filter 不影响显式成员，exclude-filter 会连显式成员
@@ -289,7 +290,21 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
             continue
         for spec in groups:
             name = spec["name"]
-            if name not in ensured_set or name in members:
+            if name not in ensured_set:
+                continue
+            is_target = item.get("name") in spec.get("attach_to", ())
+            # attach_index：把本组钉死在目标分组的指定顺位（0=首位，1=第二顺位），
+            # 与成员名无关，锚点组缺失也照样成立（例如 Bahamut 首位不是手动选择）。
+            index_spec = spec.get("attach_index")
+            if is_target and isinstance(index_spec, int) and not isinstance(index_spec, bool):
+                position = min(index_spec, len(members))
+                if name in members:
+                    if members.index(name) == position:
+                        continue
+                    members.remove(name)
+                members.insert(min(index_spec, len(members)), name)
+                continue
+            if name in members:
                 continue
             # attach_with：包含锚点组（如地区组）的分组，紧跟最后一个锚点后插入，
             # 与香港节点学同等的可选位置；否则回退 attach_to（追加到末尾）。
@@ -305,7 +320,7 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
             # attach_after：仅对 attach_to 目标组生效，紧跟指定成员后插入
             # （如紧跟默认项置为第二顺位）；成员不存在时退化为追加末尾
             # （如 Bahamut 无美国节点）。非目标组不处理。
-            if item.get("name") in spec.get("attach_to", ()):
+            if is_target:
                 after = spec.get("attach_after")
                 if isinstance(after, str) and after and after in members:
                     members.insert(members.index(after) + 1, name)

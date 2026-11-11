@@ -8,8 +8,8 @@
 
 分组继续由 `data/zurl/transform.yaml` 热加载。当前策略：在原版 `Custom_Clash` 上追加两个**专属节点组**，并确保它们只能在对应分组的成员里被选中：
 
-- **流媒体节点**（`url-test` 自动择优）：取节点名包含“流媒体”的节点，只挂进 TikTok、YouTube、Netflix、DisneyPlus、HBO、PrimeVideo、AppleTV+、Emby、Bahamut、国外媒体，并作为这些分组的默认项；其它所有分组的节点来源都加了 `filter` 负向前瞻，既看不到这些节点，也看不到“流媒体节点”这个组。
-- **AI 美国节点**（`select`）：只挂指定的某一个机场订阅（`providers` 写订阅页「提供商」里的实际名称）中的美国节点，只出现在 ChatGPT 与 AI服务 里；该订阅整体通过 `exclusive_providers` 从其它所有分组的 `use` 里摘掉，因此其它分组连该订阅的任何节点都不再显示。
+- **流媒体节点**（`url-test` 自动择优）：取节点名包含“流媒体”的节点，只挂进 TikTok、YouTube、Netflix、DisneyPlus、HBO、PrimeVideo、AppleTV+、Emby、Bahamut、国外媒体，位置固定在**第二顺位**（`attach_index: 1`，不占默认项，专属组为空时分组的默认出口仍是原来的首项）；其它所有分组的节点来源都加了 `filter` 负向前瞻，既看不到这些节点，也看不到“流媒体节点”这个组。
+- **AI 美国节点**（`select`，同样固定第二顺位）：只挂指定的某一个机场订阅（`providers` 写订阅页「提供商」里的实际名称）中的美国节点，只出现在 ChatGPT 与 AI服务 里；该订阅整体通过 `exclusive_providers` 从其它所有分组的 `use` 里摘掉，因此其它分组连该订阅的任何节点都不再显示。
 
 `exclusive`（按节点名隐藏）与 `exclusive_providers`（按订阅隐藏）都只在专属组生成成功后才动手：订阅缺失或筛选不到节点时不会改动原分组，避免把节点全藏掉。音乐、游戏、非标端口（仍直连）等其它分流保持原版行为。增强层会在追加自定义组后再次应用默认项，支持新建分组成为默认策略。客户端更新订阅后使用新配置。可提交的示例见 `config/zurl/transform.example.yaml`。
 
@@ -141,14 +141,12 @@ http://域名/s/xxxx   → zurl 短链 302 解析跳转
   如需追加自定义组，可在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`）
   的 `custom_groups` 中自行定义，修改保存后下次转换即生效，无需重建/重启容器。
   机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名。
-- 专属节点组相关的四个可选字段：`providers`（本组只挂哪些订阅）、`exclude_providers`
+- 专属节点组相关的可选字段：`attach_index`（钉在目标分组第几位，1=第二顺位）、`providers`（本组只挂哪些订阅）、`exclude_providers`
   （本组排除哪些订阅）、`exclusive`（匹配的节点从其它所有分组隐藏）、
   `exclusive_providers`（整个订阅从其它所有分组摘掉，只留在本组与 `keep_in`）。
   节点名排他走 `filter` 负向前瞻而不是 `exclude-filter`：实测 mihomo 的
   `exclude-filter` 会连显式 `proxies` 成员一起过滤，把挂进业务组的专属组本身滤掉。
 - 默认保持远程模板原样，仅对指定项按需覆盖默认出口（mihomo select 组首项即默认）：
-  - `🎶 TikTok`、`📹 YouTube`、`🎥 Netflix`、`🎥 DisneyPlus`、`🎥 HBO`、`🎥 PrimeVideo`、
-    `🎥 AppleTV+`、`🎥 Emby`、`📺 Bahamut`、`🌎 国外媒体` → `流媒体节点`（自定义组）。
   - `🔀 非标端口`、`🎮 Steam`、`🎮 游戏平台` → `🎯 全球直连`。
   - `💬 即时通讯`、`🌐 社交媒体`、`🚀 GitHub` → `🇭🇰 香港节点`。
   - `📢 谷歌FCM` → `🇸🇬 新加坡节点`。

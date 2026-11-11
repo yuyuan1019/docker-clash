@@ -25,23 +25,15 @@
 #   exclusive_providers  这些订阅整体从其它所有分组的 use 里摘掉，只留在本组
 #                        与 keep_in 组（订阅级排他，节点名无法区分订阅来源）
 #   keep_in              豁免组：不隐藏节点、不摘 provider
-#   attach_to            把本组作为可选项追加到这些分组的成员末尾
+#   attach_to            把本组作为可选项挂到这些分组
+#   attach_index         仅对 attach_to 目标生效：钉在指定顺位（0=首位，1=第二顺位）
+#                        第二顺位不占默认项，专属组为空时不影响分组默认出口
 #   attach_with          含这些锚点成员的分组，把本组紧跟锚点插入
 #   attach_after         仅对 attach_to 目标生效：紧跟该成员插入
 #   templates            仅在这些远程模板下生效（缺省=全部模板）
 
-# 媒体分组的默认选中项指向「流媒体节点」。
-group_defaults:
-  - {group: "🎶 TikTok", default: "流媒体节点"}
-  - {group: "📹 YouTube", default: "流媒体节点"}
-  - {group: "🎥 Netflix", default: "流媒体节点"}
-  - {group: "🎥 DisneyPlus", default: "流媒体节点"}
-  - {group: "🎥 HBO", default: "流媒体节点"}
-  - {group: "🎥 PrimeVideo", default: "流媒体节点"}
-  - {group: "🎥 AppleTV+", default: "流媒体节点"}
-  - {group: "🎥 Emby", default: "流媒体节点"}
-  - {group: "📺 Bahamut", default: "流媒体节点"}
-  - {group: "🌎 国外媒体", default: "流媒体节点"}
+# 不改任何分组的默认项（默认项 = mihomo select 组首项，保持原版）。
+group_defaults: []
 
 custom_groups:
   # 一、流媒体节点：节点名带「流媒体」，只在媒体分组里可选，
@@ -51,6 +43,7 @@ custom_groups:
     type: url-test
     exclude_providers: ["示例机场"]
     exclusive: true
+    attach_index: 1  # 第二顺位，不占默认项
     attach_to:
       - "🎶 TikTok"
       - "📹 YouTube"
@@ -71,6 +64,7 @@ custom_groups:
     filter: '(?i)(美国|(?<![a-z])us(?![a-z])|united[ _-]*states|🇺🇸)'
     type: select
     exclusive_providers: ["示例机场"]
+    attach_index: 1  # 第二顺位
     attach_to:
       - "🤖 ChatGPT"
       - "🤖 AI服务"
