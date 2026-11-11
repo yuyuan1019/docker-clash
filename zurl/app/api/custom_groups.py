@@ -8,6 +8,21 @@ logger = logging.getLogger("uvicorn.error")
 # mihomo 内置策略，作为默认项目标永远合法
 BUILTIN_POLICIES = frozenset({"DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE"})
 
+# 开头的内联标志，如 (?i) 或 (?im)
+_LEADING_FLAGS = re.compile(r"^\(\?([aiLmsux]+)\)")
+
+
+def _scope_inline_flags(pattern: str) -> str:
+    """把开头的 (?i) 转成 (?i:...)，便于嵌进更大的表达式。
+
+    同一表达式里再出现 (?i) 属于「非开头位置的内联标志」——mihomo（regexp2）
+    接受，但 Python re 等引擎会直接报错，转成作用域写法两边都合法，语义不变。
+    """
+    match = _LEADING_FLAGS.match(pattern)
+    if not match:
+        return pattern
+    return f"(?{match.group(1)}:{pattern[match.end():]})"
+
 
 def _group_key(config: dict) -> str | None:
     if isinstance(config.get("proxy-groups"), list):
@@ -188,13 +203,18 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
     # 用「filter 负向前瞻」实现，而不是 exclude-filter：mihomo 的 exclude-filter
     # 连显式 proxies 成员一起过滤（实测），会把挂进业务组的专属组本身滤掉；
     # filter 只作用于 provider 节点，不影响显式成员引用。
+    # 注意：前瞻必须锚定在开头（否则从中间开始的匹配会让排除失效），而锚定后
+    # 原 filter 会被迫也从头匹配——机场节点前面可能带 [提供商] 前缀，地区组的
+    # (🇭🇰|港|…) 就再也匹配不到。所以中间用 [\s\S]*? 让原 filter 仍可匹配任意位置。
     exclusive_specs = [spec for spec in groups if spec.get("exclusive")]
     if exclusive_specs:
         matched_union: set[str] = set()
         for spec in exclusive_specs:
             pattern = re.compile(spec["filter"])
             matched_union.update(name for name in static_names if pattern.search(name))
-        hide_pattern = "|".join(f"(?:{spec['filter']})" for spec in exclusive_specs)
+        hide_pattern = "|".join(
+            f"(?:{_scope_inline_flags(spec['filter'])})" for spec in exclusive_specs
+        )
         exempt_names = {spec["name"] for spec in exclusive_specs}
         for spec in exclusive_specs:
             exempt_names.update(spec.get("keep_in", ()))
@@ -214,9 +234,13 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
             if isinstance(use, list) and use:
                 prefix = f"^(?!.*(?:{hide_pattern}))"
                 current = item.get("filter")
-                if not (isinstance(current, str) and prefix in current):
-                    item["filter"] = prefix + (
-                        current if isinstance(current, str) else ".*"
+                if isinstance(current, str) and prefix in current:
+                    continue
+                if not isinstance(current, str) or current in ("", ".*"):
+                    item["filter"] = prefix + ".*"
+                else:
+                    item["filter"] = (
+                        f"{prefix}[\\s\\S]*?(?:{_scope_inline_flags(current)})"
                     )
 
     ensured: list[str] = []

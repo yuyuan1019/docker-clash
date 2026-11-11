@@ -276,7 +276,8 @@ class AppendCustomGroupsTest(unittest.TestCase):
                 self.assertEqual(["机场A"], group["use"])
                 self.assertNotIn("exclude-filter", group)
                 self.assertTrue(group["filter"].startswith("^(?!"), group["filter"])
-                self.assertIn(CDN_SPEC["filter"], group["filter"])
+                # 原 filter 必须保留下来（开头 (?i) 会转成作用域写法 (?i:...)）
+                self.assertIn("(?:cdn|低倍率|", group["filter"])
                 self.assertTrue(group["filter"].endswith(".*"), group["filter"])
         # 有组引用的组：成员引用原样保留（专属组不会被自己滤掉），
         # 且仍按 attach_with 地区锚点插入（新加坡节点在锚点表内）
@@ -294,6 +295,46 @@ class AppendCustomGroupsTest(unittest.TestCase):
         self.assertEqual(
             1, groups["🐙 GitHub"]["filter"].count("^(?!"), groups["🐙 GitHub"]["filter"]
         )
+
+    def test_exclusive_keeps_original_filter_matching_anywhere(self):
+        # 回归：机场节点会带 [提供商] 前缀（同源多账号时由 addprovide 前缀生成），
+        # 地区组的 filter 必须仍能匹配任意位置；只用 ^ 锚定前瞻会把这些节点全部滤掉。
+        streaming = {
+            "name": "流媒体节点",
+            "filter": "流媒体",
+            "type": "url-test",
+            "exclusive": True,
+        }
+        config = {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "🇭🇰 香港节点",
+                    "type": "url-test",
+                    "use": ["机场A"],
+                    "filter": "(?i)(香港|HK)",
+                },
+                {
+                    "name": "📹 YouTube",
+                    "type": "select",
+                    "use": ["机场A"],
+                    "filter": ".*",
+                    "proxies": [],
+                },
+            ],
+        }
+
+        append_custom_groups(config, [streaming], template_name="")
+
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        region = re.compile(groups["🇭🇰 香港节点"]["filter"])
+        self.assertIsNotNone(region.search("🇭🇰 香港 普通 01"))
+        self.assertIsNotNone(region.search("[喵喵 - Lite] 🇭🇰 [CDN/0.2x] HK 电信"))
+        self.assertIsNone(region.search("[喵喵 - Lite] 🇭🇰 HK 流媒体 01"))
+        self.assertIsNone(region.search("🇺🇸 美国 普通 02"))
+        # .* 组保持简单形式，行为不变
+        self.assertEqual("^(?!.*(?:(?:流媒体))).*", groups["📹 YouTube"]["filter"])
+        self.assertIsNone(re.compile(groups["📹 YouTube"]["filter"]).search("🇭🇰 香港 流媒体 01"))
 
     def test_multiple_groups_and_attach_targets(self):
         iplc_spec = {

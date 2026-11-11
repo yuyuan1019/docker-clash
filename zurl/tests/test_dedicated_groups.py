@@ -193,9 +193,11 @@ class DedicatedGroupsTest(unittest.TestCase):
                 self.assertIn("流媒体", group["filter"])
                 # 负向前瞻不能吃掉整组的节点来源
                 self.assertEqual(list(group["use"]), group["use"])
-        # 地区组同样要隐藏流媒体节点，且原地区条件仍然保留
-        self.assertTrue(groups["🇭🇰 香港节点"]["filter"].startswith("^(?!"))
-        self.assertIn("(?i)(香港|HK)", groups["🇭🇰 香港节点"]["filter"])
+        # 地区组同样要隐藏流媒体节点，且原地区条件仍然保留（仍可匹配任意位置）
+        hk_filter = groups["🇭🇰 香港节点"]["filter"]
+        self.assertTrue(hk_filter.startswith("^(?!"))
+        self.assertIn("(香港|HK)", hk_filter)
+        self.assertIn("[\\s\\S]*?", hk_filter)  # 原 filter 仍可匹配任意位置
 
     def test_ai_groups_hide_taffy_provider_nodes(self):
         groups = groups_of(convert())
@@ -207,6 +209,17 @@ class DedicatedGroupsTest(unittest.TestCase):
                 continue
             with self.subTest(group=name):
                 self.assertNotIn(TAFFY_PROVIDER, group["use"])
+
+    def test_region_filters_still_match_prefixed_provider_nodes(self):
+        # 同源多账号的订阅会给节点加 [提供商] 前缀，地区组必须仍能匹配到它们。
+        # （美国组的 filter 经过地区别名补丁后含内联标志，Python re 不接受非开头
+        #  的 (?i)；这类表达式只做字符串保留断言，真正的匹配语义由 mihomo 实测。）
+        groups = groups_of(convert())
+        hk = re.compile(groups["🇭🇰 香港节点"]["filter"])
+        self.assertIsNotNone(hk.search("[喵喵 - Lite] 🇭🇰 [CDN/0.2x] HK 电信"))
+        self.assertIsNone(hk.search("[喵喵 - Lite] 🇯🇵 JP 流媒体 01"))
+        self.assertIn("California", groups["🇺🇸 美国节点"]["filter"])
+        self.assertTrue(groups["🇺🇸 美国节点"]["filter"].startswith("^(?!"))
 
     def test_streaming_filter_matches_name_only(self):
         config = provider_config()
