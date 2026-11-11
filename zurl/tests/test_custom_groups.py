@@ -246,11 +246,18 @@ class AppendCustomGroupsTest(unittest.TestCase):
         append_custom_groups(config, [CDN_SPEC])
 
         groups = {g["name"]: g for g in config["proxy-groups"]}
-        # YouTube 在豁免列表：保留 .* 节点列表，组内可直接选任意单个节点
+        # 豁免组（keep_in）：节点来源与过滤条件都不动
+        manual = groups["🚀 手动选择"]
+        self.assertEqual(["机场A"], manual["use"])
+        self.assertEqual(".*", manual["filter"])
+        self.assertEqual(
+            ["♻️ 自动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点"], manual["proxies"]
+        )
+        self.assertNotIn("exclude-filter", groups["♻️ 自动选择"])
+        self.assertEqual("(?i)(香港|HK)", groups["🇭🇰 香港节点"]["filter"])
         youtube = groups["📹 YouTube"]
         self.assertEqual(["机场A"], youtube["use"])
         self.assertEqual(".*", youtube["filter"])
-        self.assertNotIn("exclude-filter", youtube)
         self.assertEqual(
             [
                 "🚀 手动选择",
@@ -260,42 +267,32 @@ class AppendCustomGroupsTest(unittest.TestCase):
             ],
             youtube["proxies"],
         )
-        # 其他业务组：.* 节点列表被去掉，只留组引用；不用 exclude-filter
-        github = groups["🐙 GitHub"]
-        self.assertNotIn("use", github)
-        self.assertNotIn("filter", github)
-        self.assertNotIn("exclude-filter", github)
-        self.assertEqual(
-            [
-                "🚀 手动选择",
-                "♻️ 自动选择",
-                "🇸🇬 新加坡节点",
-                "🏷️ CDN/低倍率节点",
-            ],
-            github["proxies"],
-        )
-        # 豁免组：手动选择/自动选择/地区组保留节点列表，无 exclude-filter
-        manual = groups["🚀 手动选择"]
-        self.assertEqual(["机场A"], manual["use"])
-        self.assertEqual(".*", manual["filter"])
-        self.assertEqual(
-            ["♻️ 自动选择", "🇭🇰 香港节点", "🏷️ CDN/低倍率节点"], manual["proxies"]
-        )
-        self.assertNotIn("exclude-filter", groups["♻️ 自动选择"])
-        self.assertNotIn("exclude-filter", groups["🇭🇰 香港节点"])
-        self.assertEqual("(?i)(香港|HK)", groups["🇭🇰 香港节点"]["filter"])
-        # 纯节点组（无组引用）：exclude-filter 兑底
-        self.assertEqual(
-            CDN_SPEC["filter"], groups["🔎 纯节点组"].get("exclude-filter")
-        )
-        self.assertNotIn("exclude-filter", groups["🏷️ CDN/低倍率节点"])
 
-        # 幂等：YouTube 保留节点列表，GitHub 仍去掉，纯节点组仍 exclude-filter 兑底
-        append_custom_groups(config, [CDN_SPEC])
-        self.assertEqual(["机场A"], groups["📹 YouTube"]["use"])
-        self.assertNotIn("use", groups["🐙 GitHub"])
+        # 非豁免组：provider 节点来源保留，用 filter 负向前瞻隐藏匹配节点
+        # （exclude-filter 会连显式成员一起过滤，把挂进去的专属组也滤掉）
+        for name in ("🐙 GitHub", "🔎 纯节点组"):
+            with self.subTest(group=name):
+                group = groups[name]
+                self.assertEqual(["机场A"], group["use"])
+                self.assertNotIn("exclude-filter", group)
+                self.assertTrue(group["filter"].startswith("^(?!"), group["filter"])
+                self.assertIn(CDN_SPEC["filter"], group["filter"])
+                self.assertTrue(group["filter"].endswith(".*"), group["filter"])
+        # 有组引用的组：成员引用原样保留（专属组不会被自己滤掉），
+        # 且仍按 attach_with 地区锚点插入（新加坡节点在锚点表内）
         self.assertEqual(
-            CDN_SPEC["filter"], groups["🔎 纯节点组"].get("exclude-filter")
+            ["🚀 手动选择", "♻️ 自动选择", "🇸🇬 新加坡节点", "🏷️ CDN/低倍率节点"],
+            groups["🐙 GitHub"]["proxies"],
+        )
+        # 纯节点组：没有显式成员列表
+        self.assertNotIn("proxies", groups["🔎 纯节点组"])
+
+        # 幂等：重复调用不重复插入、不重复叠加负向前瞻
+        append_custom_groups(config, [CDN_SPEC])
+        self.assertEqual(1, groups["📹 YouTube"]["proxies"].count("🏷️ CDN/低倍率节点"))
+        self.assertTrue(groups["🐙 GitHub"]["filter"].startswith("^(?!"))
+        self.assertEqual(
+            1, groups["🐙 GitHub"]["filter"].count("^(?!"), groups["🐙 GitHub"]["filter"]
         )
 
     def test_multiple_groups_and_attach_targets(self):
@@ -472,6 +469,138 @@ class AppendCustomGroupsTest(unittest.TestCase):
             ["香港 CDN 01", "美国 0.5x 02", "香港 普通节点"],
             groups["📹 YouTube"]["proxies"],
         )
+
+
+class ProviderScopeTest(unittest.TestCase):
+    """providers / exclude_providers / exclusive_providers：订阅级节点范围控制。"""
+
+    def base_config(self):
+        return {
+            "proxy-providers": {
+                "机场A": {"type": "http", "url": "https://a.invalid/sub"},
+                "塔菲": {"type": "http", "url": "https://t.invalid/sub"},
+            },
+            "proxy-groups": [
+                {
+                    "name": "🚀 手动选择",
+                    "type": "select",
+                    "use": ["机场A", "塔菲"],
+                    "filter": ".*",
+                    "proxies": ["♻️ 自动选择", "🇺🇸 美国节点"],
+                },
+                {
+                    "name": "♻️ 自动选择",
+                    "type": "url-test",
+                    "use": ["机场A", "塔菲"],
+                    "filter": ".*",
+                },
+                {
+                    "name": "🤖 ChatGPT",
+                    "type": "select",
+                    "use": ["机场A", "塔菲"],
+                    "filter": ".*",
+                    "proxies": ["🚀 手动选择", "🇺🇸 美国节点"],
+                },
+                {
+                    "name": "🇺🇸 美国节点",
+                    "type": "url-test",
+                    "use": ["机场A", "塔菲"],
+                    "filter": "(?i)(美国|US)",
+                },
+            ],
+        }
+
+    def spec(self, **overrides):
+        spec = {
+            "name": "塔菲美国节点",
+            "filter": "(?i)(美国|US)",
+            "type": "select",
+            "providers": ("塔菲",),
+            "exclusive_providers": ("塔菲",),
+            "attach_to": ("🤖 ChatGPT",),
+        }
+        spec.update(overrides)
+        return spec
+
+    def test_providers_whitelist_limits_group_source(self):
+        config = self.base_config()
+        self.assertEqual(1, append_custom_groups(config, [self.spec()]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual(["塔菲"], groups["塔菲美国节点"]["use"])
+        self.assertEqual("(?i)(美国|US)", groups["塔菲美国节点"]["filter"])
+
+    def test_exclude_providers_removes_source_from_group(self):
+        config = self.base_config()
+        spec = {
+            "name": "流媒体节点",
+            "filter": "流媒体",
+            "type": "url-test",
+            "exclude_providers": ("塔菲",),
+        }
+        self.assertEqual(1, append_custom_groups(config, [spec]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual(["机场A"], groups["流媒体节点"]["use"])
+
+    def test_exclusive_providers_is_removed_from_every_other_group(self):
+        config = self.base_config()
+        self.assertEqual(1, append_custom_groups(config, [self.spec()]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # 专属组保留该订阅
+        self.assertEqual(["塔菲"], groups["塔菲美国节点"]["use"])
+        # 其它分组（含地区组、自动选择）都不再挂它
+        for name in ("🚀 手动选择", "♻️ 自动选择", "🤖 ChatGPT", "🇺🇸 美国节点"):
+            with self.subTest(group=name):
+                self.assertEqual(["机场A"], groups[name]["use"])
+        # 专属组名只出现在 attach 目标里
+        self.assertIn("塔菲美国节点", groups["🤖 ChatGPT"]["proxies"])
+        self.assertNotIn("塔菲美国节点", groups["🚀 手动选择"]["proxies"])
+
+    def test_exclusive_providers_keeps_sources_in_keep_in_groups(self):
+        config = self.base_config()
+        spec = self.spec(keep_in=("🇺🇸 美国节点",))
+        append_custom_groups(config, [spec])
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        self.assertEqual(["机场A", "塔菲"], groups["🇺🇸 美国节点"]["use"])
+        self.assertEqual(["机场A"], groups["🚀 手动选择"]["use"])
+
+    def test_exclusive_providers_falls_back_to_direct_when_use_empties(self):
+        config = {
+            "proxy-providers": {"塔菲": {"type": "http", "url": "https://t.invalid/sub"}},
+            "proxy-groups": [
+                {
+                    "name": "♻️ 自动选择",
+                    "type": "url-test",
+                    "use": ["塔菲"],
+                    "filter": ".*",
+                },
+                {
+                    "name": "🤖 ChatGPT",
+                    "type": "select",
+                    "use": ["塔菲"],
+                    "filter": ".*",
+                    "proxies": ["♻️ 自动选择"],
+                },
+            ],
+        }
+        append_custom_groups(config, [self.spec()])
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        auto = groups["♻️ 自动选择"]
+        self.assertNotIn("use", auto)
+        self.assertNotIn("filter", auto)
+        self.assertEqual(["DIRECT"], auto["proxies"])
+        # 有组引用的组只丢 use/filter，组引用与挂入的专属组保留
+        self.assertEqual(
+            ["♻️ 自动选择", "塔菲美国节点"], groups["🤖 ChatGPT"]["proxies"]
+        )
+
+    def test_exclusive_providers_skipped_when_group_not_created(self):
+        config = self.base_config()
+        config["proxy-providers"].pop("塔菲")
+        spec = self.spec(providers=("不存在的订阅",), exclusive_providers=("机场A",))
+        self.assertEqual(0, append_custom_groups(config, [spec]))
+        groups = {g["name"]: g for g in config["proxy-groups"]}
+        # 专属组没建成，绝不能把 provider 从其它分组摘掉
+        self.assertEqual(["机场A", "塔菲"], groups["🚀 手动选择"]["use"])
 
 
 class GroupDefaultsTest(unittest.TestCase):

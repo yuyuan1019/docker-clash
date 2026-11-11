@@ -112,6 +112,26 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
         ):
             logger.warning("transform 配置组 %s 的 keep_in 不合法，已跳过", name)
             continue
+        providers = entry.get("providers", [])
+        if not isinstance(providers, list) or not all(
+            isinstance(item, str) and item.strip() for item in providers
+        ):
+            logger.warning("transform 配置组 %s 的 providers 不合法，已跳过", name)
+            continue
+        exclude_providers = entry.get("exclude_providers", [])
+        if not isinstance(exclude_providers, list) or not all(
+            isinstance(item, str) and item.strip() for item in exclude_providers
+        ):
+            logger.warning("transform 配置组 %s 的 exclude_providers 不合法，已跳过", name)
+            continue
+        exclusive_providers = entry.get("exclusive_providers", [])
+        if not isinstance(exclusive_providers, list) or not all(
+            isinstance(item, str) and item.strip() for item in exclusive_providers
+        ):
+            logger.warning(
+                "transform 配置组 %s 的 exclusive_providers 不合法，已跳过", name
+            )
+            continue
         seen.add(name)
         groups.append(
             {
@@ -124,6 +144,9 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
                 "templates": tuple(templates),
                 "exclusive": exclusive,
                 "keep_in": tuple(keep_in),
+                "providers": tuple(providers),
+                "exclude_providers": tuple(exclude_providers),
+                "exclusive_providers": tuple(exclusive_providers),
             }
         )
     return tuple(groups)

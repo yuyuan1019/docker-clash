@@ -91,6 +91,56 @@ def _provider_names(config: dict) -> list[str]:
     return [name for name in providers if isinstance(name, str) and name.strip()]
 
 
+def _effective_providers(spec: dict, providers: list[str]) -> list[str]:
+    """该自定义组实际挂载的 provider 列表。
+
+    providers 是白名单（缺省=全部 provider）；exclude_providers 另行排除，
+    用于让专属组只吃某些机场的节点（如流媒体组不吃特定订阅）。
+    """
+    allow = spec.get("providers") or ()
+    deny = spec.get("exclude_providers") or ()
+    return [
+        name for name in providers
+        if (not allow or name in allow) and name not in deny
+    ]
+
+
+def _detach_providers(config: dict, all_groups: list, keep: dict) -> int:
+    """把 keep 中的 provider 从其他所有组的 provider 来源里剔除。
+
+    keep 形如 {provider 名: {允许保留它的组名}}。订阅里的 provider 是整包挂进
+    组（use）的，无法按名字过滤单个节点，所以想让某个订阅的节点只出现在专属组
+    里，只能从其他组的 use 列表里摘掉它。摘完没有 provider 的组退回纯组引用，
+    连节点也没有时补 DIRECT，避免空 use 让 mihomo 解析失败。返回改动的组数。
+    """
+    if not keep:
+        return 0
+    changed = 0
+    for item in all_groups:
+        if not isinstance(item, dict):
+            continue
+        use = item.get("use")
+        if not isinstance(use, list) or not use:
+            continue
+        name = item.get("name")
+        remaining = [
+            provider for provider in use
+            if not (provider in keep and name not in keep[provider])
+        ]
+        if len(remaining) == len(use):
+            continue
+        if remaining:
+            item["use"] = remaining
+        else:
+            item.pop("use", None)
+            item.pop("filter", None)
+            item.pop("exclude-filter", None)
+            if not item.get("proxies"):
+                item["proxies"] = ["DIRECT"]
+        changed += 1
+    return changed
+
+
 def append_custom_groups(config: dict, groups=None, template_name: str = "") -> int:
     """按外置配置追加自定义选择组，并挂到 attach_to 指定的组末尾。
 
@@ -99,8 +149,12 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
     因此用 filter 在 mihomo 侧筛选；静态节点则直接点名进 proxies。
     attach_with 锚点：包含锚点组（如地区组）的分组会把本组紧跟其后插入，
     与地区组同可选；attach_to 则是追加到指定组末尾（无锚点时的回退）。
-    exclusive 条目会把匹配节点从其他组剔除（显式列表直接移除，
-    provider filter 组追加 exclude-filter），仅保留在专属组与 keep_in 组。
+    providers / exclude_providers 限定本组挂哪些订阅的节点。
+    exclusive 条目会把匹配节点从其他组剔除：显式列表直接移除，provider 组在
+    filter 前加负向前瞻（filter 不影响显式成员，exclude-filter 会连显式成员
+    一起过滤），仅保留在专属组与 keep_in 组。
+    exclusive_providers 条目会把整个订阅从其他所有组的 use 里摘掉，只留本组与
+    keep_in 组（订阅级排他，节点名无法用来区分订阅来源）。
     无 provider 且无匹配静态节点的组不会生成（也不会被 attach，避免悬空引用）；
     重复调用幂等。返回成功生成的组数量。
     """
@@ -131,17 +185,20 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
     }
 
     # exclusive：匹配节点从其他组中剔除，只保留在专属组与 keep_in 指定的组。
+    # 用「filter 负向前瞻」实现，而不是 exclude-filter：mihomo 的 exclude-filter
+    # 连显式 proxies 成员一起过滤（实测），会把挂进业务组的专属组本身滤掉；
+    # filter 只作用于 provider 节点，不影响显式成员引用。
     exclusive_specs = [spec for spec in groups if spec.get("exclusive")]
-    matched_union: set[str] = set()
-    for spec in exclusive_specs:
-        pattern = re.compile(spec["filter"])
-        matched_union.update(name for name in static_names if pattern.search(name))
-    exclude_pattern = "|".join(spec["filter"] for spec in exclusive_specs)
-    exempt_names = {spec["name"] for spec in exclusive_specs}
-    for spec in exclusive_specs:
-        exempt_names.update(spec.get("keep_in", ()))
-
     if exclusive_specs:
+        matched_union: set[str] = set()
+        for spec in exclusive_specs:
+            pattern = re.compile(spec["filter"])
+            matched_union.update(name for name in static_names if pattern.search(name))
+        hide_pattern = "|".join(f"(?:{spec['filter']})" for spec in exclusive_specs)
+        exempt_names = {spec["name"] for spec in exclusive_specs}
+        for spec in exclusive_specs:
+            exempt_names.update(spec.get("keep_in", ()))
+
         for item in all_groups:
             if not isinstance(item, dict) or item.get("name") in exempt_names:
                 continue
@@ -152,33 +209,29 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
                     for member in item["proxies"]
                     if not (isinstance(member, str) and member in matched_union)
                 ]
-            # 形态二：provider 节点列表（业务组的 .* 全量节点）。
-            if "use" in item or "filter" in item:
-                if isinstance(item.get("proxies"), list) and item["proxies"]:
-                    # 带组引用的业务组：直接去掉 .* 节点列表。既剔除单个 CDN 节点，
-                    # 也避免 exclude-filter 按名字把挂入的「🏷️ CDN/低倍率节点」组
-                    # 本身滤掉（mihomo 的 filter 对显式成员同样生效）。
-                    item.pop("use", None)
-                    item.pop("filter", None)
-                    item.pop("exclude-filter", None)
-                else:
-                    # 纯节点组（无组引用、也挂不了组）：运行时过滤兜底。
-                    existing = item.get("exclude-filter")
-                    if (
-                        not isinstance(existing, str)
-                        or exclude_pattern not in existing
-                    ):
-                        item["exclude-filter"] = (
-                            f"{existing}|{exclude_pattern}"
-                            if isinstance(existing, str) and existing
-                            else exclude_pattern
-                        )
+            # 形态二：provider 节点来源 —— 过滤条件加负向前瞻，隐藏匹配节点。
+            use = item.get("use")
+            if isinstance(use, list) and use:
+                prefix = f"^(?!.*(?:{hide_pattern}))"
+                current = item.get("filter")
+                if not (isinstance(current, str) and prefix in current):
+                    item["filter"] = prefix + (
+                        current if isinstance(current, str) else ".*"
+                    )
 
     ensured: list[str] = []
     for spec in groups:
         pattern = re.compile(spec["filter"])
         matched = [name for name in static_names if pattern.search(name)]
-        if not providers and not matched:
+        group_providers = _effective_providers(spec, providers)
+        if not group_providers and not matched:
+            if spec.get("providers"):
+                logger.warning(
+                    "transform 配置组 %s 指定的 provider 在本次订阅中不存在（%s），"
+                    "已跳过该组",
+                    spec["name"],
+                    ", ".join(spec["providers"]),
+                )
             continue
 
         group = by_name.get(spec["name"])
@@ -188,8 +241,8 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
             by_name[spec["name"]] = group
 
         group["type"] = spec["type"]
-        if providers:
-            group["use"] = providers
+        if group_providers:
+            group["use"] = group_providers
             group["filter"] = spec["filter"]
         else:
             group.pop("use", None)
@@ -234,4 +287,17 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
                     members.insert(members.index(after) + 1, name)
                     continue
                 members.append(name)
+
+    # exclusive_providers：把指定订阅的节点从其他所有组摘掉，只保留在声明它的
+    # 自定义组（如「塔菲美国节点」）与 keep_in 组里。只在组确实生成成功后才摘，
+    # 避免专属组没建成时把所有节点都藏掉。
+    provider_keep: dict[str, set[str]] = {}
+    for spec in groups:
+        if spec["name"] not in ensured_set:
+            continue
+        for provider in spec.get("exclusive_providers", ()):
+            allowed = provider_keep.setdefault(provider, set())
+            allowed.add(spec["name"])
+            allowed.update(spec.get("keep_in", ()))
+    _detach_providers(config, all_groups, provider_keep)
     return len(ensured)

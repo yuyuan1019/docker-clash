@@ -6,7 +6,12 @@
 
 已彻底移除 mihomo 容器及全部相关部件：compose 里不再有 mihomo / metacubexd 服务，nginx 去掉 `/clash/`、`/xd/`、`/apply`、`/mihomo/*` 入口，zurl 去掉 `docker.sock` 与 mihomo 配置挂载及对应后端代码（`apply_to_mihomo`、`control_mihomo` 等已删除），登录密钥变量由 `MIHOMO_SECRET` 改名为 `WEB_AUTH_KEY`。本项目的定位收敛为：**订阅转换 + 短链分发**，生成的订阅交给客户端（OpenClash / Clash Verge / mihomo 等）自行运行。7788 端口、nginx 与群晖反向代理配置不变。
 
-分组继续由 `data/zurl/transform.yaml` 热加载：统一为一个“流媒体节点”组（`url-test` 自动择优），匹配原始名称包含“流媒体”的节点，并按名称保守排除香港、中国大陆、印度等常见 TikTok 访问受限地区；仍不区分日本、美国。该筛选不代表逐节点解锁实测。TikTok、YouTube、Netflix、DisneyPlus、HBO、PrimeVideo、AppleTV+、Emby、Bahamut 和国外媒体默认使用该组；音乐与其他分流保持原样，非标端口仍直连。`templates` 维持 `Custom_Clash.ini`、`Custom_Clash_Full.ini`，其他模板不会插入不存在的组引用。增强层会在追加自定义组后再次应用默认项，支持新建分组成为默认策略。客户端更新订阅后使用新配置。可提交的示例见 `config/zurl/transform.example.yaml`。
+分组继续由 `data/zurl/transform.yaml` 热加载。当前策略：在原版 `Custom_Clash` 上追加两个**专属节点组**，并确保它们只能在对应分组的成员里被选中：
+
+- **流媒体节点**（`url-test` 自动择优）：取节点名包含“流媒体”的节点，只挂进 TikTok、YouTube、Netflix、DisneyPlus、HBO、PrimeVideo、AppleTV+、Emby、Bahamut、国外媒体，并作为这些分组的默认项；其它所有分组的节点来源都加了 `filter` 负向前瞻，既看不到这些节点，也看不到“流媒体节点”这个组。
+- **AI 美国节点**（`select`）：只挂指定的某一个机场订阅（`providers` 写订阅页「提供商」里的实际名称）中的美国节点，只出现在 ChatGPT 与 AI服务 里；该订阅整体通过 `exclusive_providers` 从其它所有分组的 `use` 里摘掉，因此其它分组连该订阅的任何节点都不再显示。
+
+`exclusive`（按节点名隐藏）与 `exclusive_providers`（按订阅隐藏）都只在专属组生成成功后才动手：订阅缺失或筛选不到节点时不会改动原分组，避免把节点全藏掉。音乐、游戏、非标端口（仍直连）等其它分流保持原版行为。增强层会在追加自定义组后再次应用默认项，支持新建分组成为默认策略。客户端更新订阅后使用新配置。可提交的示例见 `config/zurl/transform.example.yaml`。
 
 `data/`、实际 `.env`、订阅地址、密钥和生成配置仅保留在本地，不提交 Git。全新部署可复制 `config/zurl/transform.example.yaml` 到 `data/zurl/transform.yaml`；已有本地文件不要覆盖。
 
@@ -16,7 +21,7 @@
 - **多订阅聚合**：多条订阅合并转换，按提供商命名 proxy-provider；同源多账号自动加 `[提供商名称]` 节点前缀，流量来源一目了然
 - **动态域名**：后端地址、短链域名全部根据当前访问地址动态生成，换域名 / 换端口 / 上 HTTPS 均零配置
 - **智能订阅命名**：单订阅自动跟随提供商名，多订阅自动取 `合集`，通过 `Content-Disposition` 传给 Clash Verge 作为配置名
-- **转换增强层**（zurl）：地区兼容归并（Tokyo→日本、Incheon→韩国、California→美国）、CDN/低倍率专属选择组、分组默认选中项，全部外置 `transform.yaml` 热加载
+- **转换增强层**（zurl）：地区兼容归并（Tokyo→日本、Incheon→韩国、California→美国）、专属节点组（按节点名或按机场订阅隔离，只在指定策略组可选）、分组默认选中项，全部外置 `transform.yaml` 热加载
 - **短链服务**：自建 zurl 短链（`/s/xxxx`），长链再长也不怕，客户端自动更新不受影响
 - **安全防护**：可选 `WEB_AUTH_KEY` 网页登录（HttpOnly 长期 Cookie）、内部令牌防直连刷接口；不挂载 Docker socket
 - **官方镜像优先**：SubConverter 用官方预构建镜像，本地只构建轻量前端与网关，群晖也能轻松编译
@@ -136,7 +141,14 @@ http://域名/s/xxxx   → zurl 短链 302 解析跳转
   如需追加自定义组，可在 `data/zurl/transform.yaml`（模板：`config/zurl/transform.example.yaml`）
   的 `custom_groups` 中自行定义，修改保存后下次转换即生效，无需重建/重启容器。
   机场订阅按 proxy-provider filter 在运行时筛选，静态节点直接点名。
+- 专属节点组相关的四个可选字段：`providers`（本组只挂哪些订阅）、`exclude_providers`
+  （本组排除哪些订阅）、`exclusive`（匹配的节点从其它所有分组隐藏）、
+  `exclusive_providers`（整个订阅从其它所有分组摘掉，只留在本组与 `keep_in`）。
+  节点名排他走 `filter` 负向前瞻而不是 `exclude-filter`：实测 mihomo 的
+  `exclude-filter` 会连显式 `proxies` 成员一起过滤，把挂进业务组的专属组本身滤掉。
 - 默认保持远程模板原样，仅对指定项按需覆盖默认出口（mihomo select 组首项即默认）：
+  - `🎶 TikTok`、`📹 YouTube`、`🎥 Netflix`、`🎥 DisneyPlus`、`🎥 HBO`、`🎥 PrimeVideo`、
+    `🎥 AppleTV+`、`🎥 Emby`、`📺 Bahamut`、`🌎 国外媒体` → `流媒体节点`（自定义组）。
   - `🔀 非标端口`、`🎮 Steam`、`🎮 游戏平台` → `🎯 全球直连`。
   - `💬 即时通讯`、`🌐 社交媒体`、`🚀 GitHub` → `🇭🇰 香港节点`。
   - `📢 谷歌FCM` → `🇸🇬 新加坡节点`。
@@ -150,7 +162,9 @@ http://域名/s/xxxx   → zurl 短链 302 解析跳转
   不存在时跳过、不插入悬空引用。
 - 多个 `proxy-provider` 的订阅地址具有相同协议和域名时，视为同一来源的不同账号；路径和查询参数中的 token 均不参与比较，
   并自动通过 `override.additional-prefix` 给节点增加 `[提供商名称]` 前缀，便于在总地区组、连接和日志中区分实际流量来源。不同来源的节点名称保持不变。
-- 当前 `custom_groups`：按需自定义节点组（当前为空，完全遵循上游远程配置的各服务分流设定）。
+- 当前 `custom_groups`：`流媒体节点`（节点名含「流媒体」，只在媒体分组可选）与 `塔菲美国节点`
+  （只取指定订阅的美国节点，只在 `🤖 ChatGPT` / `🤖 AI服务` 可选；具体订阅名见本地
+  `data/zurl/transform.yaml`，不入库），其余分组保持上游远程配置原样。
 
 ## 📁 目录说明
 
