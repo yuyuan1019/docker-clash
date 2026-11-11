@@ -166,6 +166,7 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
     与地区组同可选；attach_index 把本组钉死在 attach_to 目标的指定顺位
     （0=首位，1=第二顺位，与成员名无关）；否则追加到目标组末尾。
     providers / exclude_providers 限定本组挂哪些订阅的节点。
+    url / interval / tolerance 直接写进 url-test 等自动测速组，避免依赖引擎默认值。
     exclusive 条目会把匹配节点从其他组剔除：显式列表直接移除，provider 组在
     filter 前加负向前瞻（filter 不影响显式成员，exclude-filter 会连显式成员
     一起过滤），仅保留在专属组与 keep_in 组。
@@ -266,6 +267,13 @@ def append_custom_groups(config: dict, groups=None, template_name: str = "") -> 
             by_name[spec["name"]] = group
 
         group["type"] = spec["type"]
+        # url-test/fallback 组的测速参数：显式写入，避免依赖 mihomo 默认值
+        for key in ("url", "interval", "tolerance"):
+            value = spec.get(key)
+            if value in (None, ""):
+                group.pop(key, None)
+            else:
+                group[key] = value
         if group_providers:
             group["use"] = group_providers
             group["filter"] = spec["filter"]

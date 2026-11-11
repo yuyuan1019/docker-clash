@@ -96,6 +96,22 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
         if not isinstance(attach_after, str):
             logger.warning("transform 配置组 %s 的 attach_after 不是字符串，已跳过", name)
             continue
+        url = entry.get("url", "")
+        if not isinstance(url, str):
+            logger.warning("transform 配置组 %s 的 url 不是字符串，已跳过", name)
+            continue
+        interval = entry.get("interval")
+        if interval is not None and (
+            not isinstance(interval, int) or isinstance(interval, bool) or interval < 1
+        ):
+            logger.warning("transform 配置组 %s 的 interval 不是正整数，已跳过", name)
+            continue
+        tolerance = entry.get("tolerance")
+        if tolerance is not None and (
+            not isinstance(tolerance, int) or isinstance(tolerance, bool) or tolerance < 0
+        ):
+            logger.warning("transform 配置组 %s 的 tolerance 不是非负整数，已跳过", name)
+            continue
         attach_index = entry.get("attach_index")
         if attach_index is not None and (
             not isinstance(attach_index, int)
@@ -150,6 +166,9 @@ def _normalize_groups(raw) -> tuple[dict, ...] | None:
                 "attach_with": tuple(attach_with),
                 "attach_after": attach_after,
                 "attach_index": attach_index,
+                "url": url,
+                "interval": interval,
+                "tolerance": tolerance,
                 "templates": tuple(templates),
                 "exclusive": exclusive,
                 "keep_in": tuple(keep_in),

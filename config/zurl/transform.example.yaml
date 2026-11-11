@@ -25,6 +25,7 @@
 #   exclusive_providers  这些订阅整体从其它所有分组的 use 里摘掉，只留在本组
 #                        与 keep_in 组（订阅级排他，节点名无法区分订阅来源）
 #   keep_in              豁免组：不隐藏节点、不摘 provider
+#   url/interval/tolerance  自动测速组（url-test/fallback）的测速地址、间隔、容差
 #   attach_to            把本组作为可选项挂到这些分组
 #   attach_index         仅对 attach_to 目标生效：钉在指定顺位（0=首位，1=第二顺位）
 #                        第二顺位不占默认项，专属组为空时不影响分组默认出口
@@ -41,6 +42,9 @@ custom_groups:
   - name: "流媒体节点"
     filter: "流媒体"
     type: url-test
+    url: "https://www.gstatic.com/generate_204"
+    interval: 300
+    tolerance: 50
     exclude_providers: ["示例机场"]
     exclusive: true
     attach_index: 1  # 第二顺位，不占默认项
@@ -62,7 +66,10 @@ custom_groups:
   - name: "AI 美国节点"
     providers: ["示例机场"]
     filter: '(?i)(美国|(?<![a-z])us(?![a-z])|united[ _-]*states|🇺🇸)'
-    type: select
+    type: url-test
+    url: "https://www.gstatic.com/generate_204"
+    interval: 300
+    tolerance: 50
     exclusive_providers: ["示例机场"]
     attach_index: 1  # 第二顺位
     attach_to:

@@ -590,6 +590,51 @@ class AttachIndexTest(unittest.TestCase):
         self.assertEqual("流媒体节点", groups["📹 YouTube"]["proxies"][-1])
 
 
+class ProbeSettingsTest(unittest.TestCase):
+    """url / interval / tolerance 写进自定义组，不依赖引擎默认值。"""
+
+    def config(self):
+        return {
+            "proxy-providers": {"机场A": {"type": "http", "url": "https://a.invalid/sub"}},
+            "proxy-groups": [
+                {"name": "📹 YouTube", "type": "select", "proxies": ["🚀 手动选择"]},
+            ],
+        }
+
+    def test_sets_probe_fields_and_is_idempotent(self):
+        spec = {
+            "name": "测速组",
+            "filter": "(?i)us",
+            "type": "url-test",
+            "url": "https://www.gstatic.com/generate_204",
+            "interval": 300,
+            "tolerance": 50,
+            "attach_to": ("📹 YouTube",),
+        }
+        config = self.config()
+        append_custom_groups(config, [spec])
+        group = next(g for g in config["proxy-groups"] if g["name"] == "测速组")
+        self.assertEqual("url-test", group["type"])
+        self.assertEqual("https://www.gstatic.com/generate_204", group["url"])
+        self.assertEqual(300, group["interval"])
+        self.assertEqual(50, group["tolerance"])
+        # 重复应用不重复写入
+        append_custom_groups(config, [spec])
+        self.assertEqual(300, group["interval"])
+
+    def test_omitted_probe_fields_are_cleared(self):
+        spec = {"name": "测速组", "filter": "(?i)us", "type": "select"}
+        config = self.config()
+        config["proxy-groups"].append(
+            {"name": "测速组", "type": "url-test", "url": "https://x.invalid", "interval": 60}
+        )
+        append_custom_groups(config, [spec])
+        group = next(g for g in config["proxy-groups"] if g["name"] == "测速组")
+        self.assertNotIn("url", group)
+        self.assertNotIn("interval", group)
+        self.assertNotIn("tolerance", group)
+
+
 class ProviderScopeTest(unittest.TestCase):
     """providers / exclude_providers / exclusive_providers：订阅级节点范围控制。"""
 

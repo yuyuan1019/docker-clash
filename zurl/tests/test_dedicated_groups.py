@@ -51,6 +51,9 @@ def transform_settings():
                 "name": STREAMING_GROUP,
                 "filter": "流媒体",
                 "type": "url-test",
+                "url": "https://www.gstatic.com/generate_204",
+                "interval": 300,
+                "tolerance": 50,
                 "exclude_providers": [TAFFY_PROVIDER],
                 "exclusive": True,
                 "attach_index": 1,
@@ -60,7 +63,10 @@ def transform_settings():
                 "name": TAFFY_GROUP,
                 "providers": [TAFFY_PROVIDER],
                 "filter": r"(?i)(美国|(?<![a-z])us(?![a-z])|united[ _-]*states|🇺🇸)",
-                "type": "select",
+                "type": "url-test",
+                "url": "https://www.gstatic.com/generate_204",
+                "interval": 300,
+                "tolerance": 50,
                 "exclusive_providers": [TAFFY_PROVIDER],
                 "attach_index": 1,
                 "attach_to": list(AI_SERVICES),
@@ -154,7 +160,14 @@ class DedicatedGroupsTest(unittest.TestCase):
         self.assertEqual("url-test", groups[STREAMING_GROUP]["type"])
         self.assertEqual("流媒体", groups[STREAMING_GROUP]["filter"])
         self.assertEqual([OTHER_PROVIDER], groups[STREAMING_GROUP]["use"])
-        self.assertEqual("select", groups[TAFFY_GROUP]["type"])
+        # 两个专属组都是自动测速组，测速参数显式写入
+        self.assertEqual("url-test", groups[TAFFY_GROUP]["type"])
+        for name in (STREAMING_GROUP, TAFFY_GROUP):
+            self.assertEqual(
+                "https://www.gstatic.com/generate_204", groups[name]["url"]
+            )
+            self.assertEqual(300, groups[name]["interval"])
+            self.assertEqual(50, groups[name]["tolerance"])
         self.assertEqual([TAFFY_PROVIDER], groups[TAFFY_GROUP]["use"])
         self.assertIn("美国", groups[TAFFY_GROUP]["filter"])
 
