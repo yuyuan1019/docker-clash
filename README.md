@@ -56,9 +56,10 @@ docker compose up -d
    多条订阅点「添加订阅链接」增加行。填了提供商名，Clash 里的代理提供者就显示该名字。
    同一提供商有多个账号时使用唯一名称（如 `机场A-账号1`、`机场A-账号2`）；系统识别到协议和域名相同的订阅后，会自动给节点增加 `[提供商名称]` 前缀，兼容 token 位于查询参数或 URL 路径中的情况
 4. 「生成类型」默认 Clash；「远程配置」默认 Custom_OpenClash_Rules（可换 Full/Fallback/GFW 等变体）；
-   另提供 ACL4SSR（LoveMyself546 维护版，含 Online_Full 全量规则与 Online_Full_AdblockPlus 全量去广告）；
+   ACL4SSR 只提供 [官方原版](https://github.com/ACL4SSR/ACL4SSR)（`Online_Full` 全量分流、`Online` 基础分流，从上游 `master` 读取）；
    Lite/Mainland 及其余 Fallback 变体、自托管 BiliHK 版均已移除。Smart 专版、Stash 和「香港/日本按提供商细分」复写版均已彻底移除。
-5. 「订阅命名」紧跟「远程配置」之后默认展示：留空自动填（单订阅=提供商名，多订阅=`合集`，并自动追加所选远程配置名，如 `合集-Custom_Clash_Full`；切换远程配置或重新选择提供商会自动同步）；「更新间隔」默认 7 天
+5. 「订阅命名」紧跟「远程配置」之后默认展示：留空自动填（单订阅=提供商名，多订阅=`合集`，并自动追加所选远程配置名，如 `合集-Custom_Clash_Full`；切换远程配置或重新选择提供商会自动同步）；「更新间隔」默认 7 天。
+   ACL4SSR 官方模板的自动命名带 `_官方`，与历史同名订阅区分。
 6. 首行操作按钮：点「生成订阅链接」→ 得到定制订阅长链；点「生成短链接」→ 得到 `当前域名:端口/s/xxxx`；点「复制订阅命名」可一键复制当前命名；
    「从URL解析」可把长/短链接还原回表单；生成 Clash 类型后可点「一键导入 Clash」唤起本机 Clash 客户端（已生成短链时优先导入短链）。
    “订阅命名”通过订阅响应的 `Content-Disposition` 传给 Clash Verge，长链和短链导入均会使用该名称

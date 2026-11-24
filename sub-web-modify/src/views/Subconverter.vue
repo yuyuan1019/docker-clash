@@ -371,26 +371,18 @@ function buildCustomClashOptions() {
     return options
   }, [])
 }
-// ACL4SSR 远程配置（GitHub: LoveMyself546/ACL4SSR，模板位于 Clash/config/）
-const acl4ssrConfigBase = 'https://testingcf.jsdelivr.net/gh/LoveMyself546/ACL4SSR@master/Clash/config/'
-const acl4ssrUrl = name => acl4ssrConfigBase + name
-const acl4ssrVariants = [
+// ACL4SSR 官方模板位于上游仓库的 Clash/config/。
+const acl4ssrUpstreamConfigBase = 'https://testingcf.jsdelivr.net/gh/ACL4SSR/ACL4SSR@master/Clash/config/'
+const acl4ssrUpstreamOptions = [
   {
-    file: 'ACL4SSR_Online_Full.ini',
-    label: 'ACL4SSR_Online_Full（全量规则）'
+    label: 'ACL4SSR_Online_Full（官方全量）',
+    value: acl4ssrUpstreamConfigBase + 'ACL4SSR_Online_Full.ini'
   },
   {
-    file: 'ACL4SSR_Online_Full_AdblockPlus.ini',
-    label: 'ACL4SSR_Online_Full_AdblockPlus（全量+去广告）'
+    label: 'ACL4SSR_Online（官方基础）',
+    value: acl4ssrUpstreamConfigBase + 'ACL4SSR_Online.ini'
   }
 ]
-
-function buildAcl4ssrOptions() {
-  return acl4ssrVariants.map(variant => ({
-    label: variant.label,
-    value: variant.url || acl4ssrUrl(variant.file)
-  }))
-}
 const tgBotLink = process.env.VUE_APP_BOT_LINK
 const yglink = process.env.VUE_APP_YOUTUBE_LINK
 const bzlink = process.env.VUE_APP_BILIBILI_LINK
@@ -439,8 +431,8 @@ export default {
             options: buildCustomClashOptions()
           },
           {
-            label: "ACL4SSR",
-            options: buildAcl4ssrOptions()
+            label: "ACL4SSR（官方原版）",
+            options: acl4ssrUpstreamOptions
           }
         ]
       },
@@ -827,8 +819,9 @@ export default {
       const url = (this.form.remoteConfig || "").trim();
       if (!url) return "";
       const base = url.split("?")[0];
-      const name = base.substring(base.lastIndexOf("/") + 1);
-      return name.replace(/\.ini$/i, "");
+      const name = base.substring(base.lastIndexOf("/") + 1).replace(/\.ini$/i, "");
+      // 区分历史同名订阅，避免导入官方模板时覆盖原有配置。
+      return base.startsWith(acl4ssrUpstreamConfigBase) ? name + "_官方" : name;
     },
     copyFilename() {
       if (!this.form.filename) {
